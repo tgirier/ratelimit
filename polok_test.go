@@ -23,7 +23,10 @@ func TestRequest(t *testing.T) {
 
 	w := polok.Worker{}
 
-	got, err := w.Request(method, url)
+	resp, err := w.Request(method, url)
+
+	got := resp.StatusCode
+
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}

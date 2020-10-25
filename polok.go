@@ -38,20 +38,18 @@ func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int, rate float64
 type Worker struct{}
 
 // Request makes a request to a given URL with a given method
-func (w *Worker) Request(method string, url string) (int, error) {
+func (w *Worker) Request(method string, url string) (*http.Response, error) {
 	c := http.Client{}
 
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
 	resp, err := c.Do(req)
 	if err != nil {
-		return 0, err
+		return nil, err
 	}
 
-	sc := resp.StatusCode
-
-	return sc, nil
+	return resp, nil
 }
