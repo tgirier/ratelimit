@@ -1,6 +1,7 @@
 package polok_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/tgirier/polok"
@@ -9,7 +10,7 @@ import (
 func TestRequest(t *testing.T) {
 	method := "GET"
 	url := "http://www.google.com"
-	want := 200
+	want := http.StatusOK
 
 	w := polok.Worker{}
 
