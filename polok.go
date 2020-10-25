@@ -7,14 +7,14 @@ import (
 	"time"
 )
 
-// Limiter is responsible for enforcing a global rate limiting
-type Limiter struct {
+// MaxQPS is responsible for enforcing a global rate limiting
+type MaxQPS struct {
 	Rate float64 // query per second
 }
 
 // Consume consumes n tokens from the bucket channel at a given rate.
 // A token represents a single request.
-func (l *Limiter) Consume(n int, bucket <-chan struct{}) (total int, rate float64) {
+func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int, rate float64) {
 
 	tickInterval := time.Duration(1e9/l.Rate) * time.Nanosecond
 	tick := time.Tick(tickInterval)
