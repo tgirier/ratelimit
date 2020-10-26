@@ -35,18 +35,22 @@ func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int, rate float64
 }
 
 // Worker is responsible for requesting a given URL with a given method
-type Worker struct{}
+type Worker struct {
+	Client *http.Client
+}
 
 // Request makes a request to a given URL with a given method
 func (w *Worker) Request(method string, url string) (*http.Response, error) {
-	c := http.Client{}
+	if w.Client == nil {
+		w.Client = &http.Client{}
+	}
 
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	resp, err := c.Do(req)
+	resp, err := w.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}
