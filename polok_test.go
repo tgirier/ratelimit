@@ -1,7 +1,6 @@
 package polok_test
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -11,17 +10,18 @@ import (
 )
 
 func TestRequest(t *testing.T) {
-	s, err := startTestTLSServer()
-	if err != nil {
-		t.Fatalf("worker - test tls server %v", err)
-	}
-	defer s.Close()
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello World")
+	}))
+	defer ts.Close()
 
 	method := "GET"
-	url := s.URL
+	url := ts.URL
 	want := http.StatusOK
 
-	w := polok.Worker{}
+	w := polok.Worker{
+		Client: ts.Client(),
+	}
 
 	resp, err := w.Request(method, url)
 
@@ -62,20 +62,4 @@ func TestMaxQPS(t *testing.T) {
 	if len(bucket) > 0 {
 		t.Fatalf("limiter - remaining tokens in bucket %v", len(bucket))
 	}
-}
-
-func startTestTLSServer() (*httptest.Server, error) {
-	s := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprintln(w, "Hello World")
-	}))
-
-	cert, err := tls.LoadX509KeyPair("testCerts/server.crt", "testCerts/server.key")
-	if err != nil {
-		return nil, err
-	}
-
-	s.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
-	s.StartTLS()
-
-	return s, nil
 }
