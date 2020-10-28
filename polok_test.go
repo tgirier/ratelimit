@@ -24,13 +24,11 @@ func TestRequest(t *testing.T) {
 	}
 
 	resp, err := w.Request(method, url)
-
-	got := resp.StatusCode
-
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
 
+	got := resp.StatusCode
 	if got != want {
 		t.Fatalf("worker - got %d, want %d", got, want)
 	}

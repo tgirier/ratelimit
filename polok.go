@@ -42,7 +42,7 @@ type Worker struct {
 // Request makes a request to a given URL with a given method
 func (w *Worker) Request(method string, url string) (*http.Response, error) {
 	if w.Client == nil {
-		w.Client = &http.Client{}
+		w.Client = http.DefaultClient
 	}
 
 	req, err := http.NewRequest(method, url, nil)
