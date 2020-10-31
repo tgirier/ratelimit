@@ -19,6 +19,8 @@ func TestRequest(t *testing.T) {
 	url := ts.URL
 	want := http.StatusOK
 
+	bucket := make(chan struct{}, 1)
+
 	w := polok.Worker{
 		Client: ts.Client(),
 	}
@@ -28,7 +30,7 @@ func TestRequest(t *testing.T) {
 		t.Fatalf("worker - %v", err)
 	}
 
-	resp, err := w.Request(req)
+	resp, err := w.Request(req, bucket)
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
@@ -37,6 +39,9 @@ func TestRequest(t *testing.T) {
 
 	if got != want {
 		t.Fatalf("worker - got %d, want %d", got, want)
+	}
+	if len(bucket) == 0 {
+		t.Fatalf("worker - remaining tokens in bucket %v", len(bucket))
 	}
 }
 

@@ -41,7 +41,7 @@ type Worker struct {
 }
 
 // Request makes a given request if it is able to post a token.
-func (w *Worker) Request(req *http.Request) (*http.Response, error) {
+func (w *Worker) Request(req *http.Request, bucket chan<- struct{}) (*http.Response, error) {
 	if w.Client == nil {
 		w.Client = http.DefaultClient
 	}
@@ -49,6 +49,8 @@ func (w *Worker) Request(req *http.Request) (*http.Response, error) {
 	if req == nil {
 		return nil, errors.New("missing request")
 	}
+
+	bucket <- struct{}{}
 
 	resp, err := w.Client.Do(req)
 	if err != nil {
