@@ -29,6 +29,7 @@ func TestRequest(t *testing.T) {
 	}
 
 	got := resp.StatusCode
+
 	if got != want {
 		t.Fatalf("worker - got %d, want %d", got, want)
 	}
