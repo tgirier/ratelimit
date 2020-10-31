@@ -3,6 +3,7 @@
 package polok
 
 import (
+	"errors"
 	"net/http"
 	"time"
 )
@@ -39,15 +40,14 @@ type Worker struct {
 	Client *http.Client
 }
 
-// Request makes a request to a given URL with a given method
-func (w *Worker) Request(method string, url string) (*http.Response, error) {
+// Request makes a given request if it is able to post a token.
+func (w *Worker) Request(req *http.Request) (*http.Response, error) {
 	if w.Client == nil {
 		w.Client = http.DefaultClient
 	}
 
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		return nil, err
+	if req == nil {
+		return nil, errors.New("missing request")
 	}
 
 	resp, err := w.Client.Do(req)

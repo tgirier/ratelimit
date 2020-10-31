@@ -23,7 +23,12 @@ func TestRequest(t *testing.T) {
 		Client: ts.Client(),
 	}
 
-	resp, err := w.Request(method, url)
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		t.Fatalf("worker - %v", err)
+	}
+
+	resp, err := w.Request(req)
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
