@@ -21,16 +21,12 @@ func TestRequest(t *testing.T) {
 
 	bucket := make(chan struct{}, 1)
 
-	w := polok.Worker{
-		Client: ts.Client(),
-	}
-
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
 
-	resp, err := w.Request(req, bucket)
+	resp, err := polok.Request(req, bucket, ts.Client())
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
@@ -76,7 +72,7 @@ func TestMaxQPS(t *testing.T) {
 func TestRequestWithLimit(t *testing.T) {
 	initialRate := 100.0
 	requestNumber := 20
-	burstAllowed := 10
+	burstAllowed := 50
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Hello World !")

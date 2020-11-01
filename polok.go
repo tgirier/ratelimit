@@ -36,15 +36,11 @@ func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int, rate float64
 	return counter, float64(counter) / duration
 }
 
-// Worker is responsible for requesting a given URL with a given method
-type Worker struct {
-	Client *http.Client
-}
-
 // Request makes a given request if it is able to post a token.
-func (w *Worker) Request(req *http.Request, bucket chan<- struct{}) (*http.Response, error) {
-	if w.Client == nil {
-		w.Client = http.DefaultClient
+// A custom http client can be provided, otherwise http default client will be used
+func Request(req *http.Request, bucket chan<- struct{}, client *http.Client) (*http.Response, error) {
+	if client == nil {
+		client = http.DefaultClient
 	}
 
 	if req == nil {
@@ -53,7 +49,7 @@ func (w *Worker) Request(req *http.Request, bucket chan<- struct{}) (*http.Respo
 
 	bucket <- struct{}{}
 
-	resp, err := w.Client.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +65,7 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, burst int,
 	var n int
 	var r float64
 	var wg sync.WaitGroup
-	var wgWorker sync.WaitGroup
+	var wgReq sync.WaitGroup
 
 	m := MaxQPS{
 		Rate: rate,
@@ -84,17 +80,14 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, burst int,
 	}()
 
 	for i := 0; i < reqNumber; i++ {
-		wgWorker.Add(1)
+		wgReq.Add(1)
 		go func(req *http.Request, client *http.Client) {
-			w := Worker{
-				Client: client,
-			}
-			_, _ = w.Request(req, tokens)
-			wgWorker.Done()
+			_, _ = Request(req, tokens, client)
+			wgReq.Done()
 		}(req, client)
 	}
 
-	wgWorker.Wait()
+	wgReq.Wait()
 	wg.Wait()
 
 	return n, r, nil
