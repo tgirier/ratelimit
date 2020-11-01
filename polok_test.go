@@ -72,3 +72,31 @@ func TestMaxQPS(t *testing.T) {
 		t.Fatalf("limiter - remaining tokens in bucket %v", len(bucket))
 	}
 }
+
+func TestRequestWithLimit(t *testing.T) {
+	initialRate := 100.0
+	requestNumber := 20
+	burstAllowed := 10
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello World !")
+	}))
+	defer ts.Close()
+
+	req, err := http.NewRequest("GET", ts.URL, nil)
+	if err != nil {
+		t.Fatalf("request - %v", err)
+	}
+
+	got, rate, err := polok.RequestWithLimit(req, requestNumber, initialRate, burstAllowed, ts.Client())
+
+	expectedRate := initialRate
+	want := requestNumber
+
+	if got != want {
+		t.Fatalf("request - got %v requests, want %v", got, want)
+	}
+	if rate > expectedRate {
+		t.Fatalf("request - rate %v, expected %v", rate, expectedRate)
+	}
+}

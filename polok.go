@@ -5,6 +5,7 @@ package polok
 import (
 	"errors"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -58,4 +59,43 @@ func (w *Worker) Request(req *http.Request, bucket chan<- struct{}) (*http.Respo
 	}
 
 	return resp, nil
+}
+
+// RequestWithLimit launches a given number of requests to a given URL at a given rate.
+// A custom http client can be provided, otherwise http default client will be used.
+// Burst defines the number of concurrent requests that are allowed to be launched at a given time.
+func RequestWithLimit(req *http.Request, reqNumber int, rate float64, burst int, client *http.Client) (number int, finalRate float64, err error) {
+
+	var n int
+	var r float64
+	var wg sync.WaitGroup
+	var wgWorker sync.WaitGroup
+
+	m := MaxQPS{
+		Rate: rate,
+	}
+
+	tokens := make(chan struct{}, burst)
+
+	wg.Add(1)
+	go func() {
+		n, r = m.Consume(reqNumber, tokens)
+		wg.Done()
+	}()
+
+	for i := 0; i < reqNumber; i++ {
+		wgWorker.Add(1)
+		go func(req *http.Request, client *http.Client) {
+			w := Worker{
+				Client: client,
+			}
+			_, _ = w.Request(req, tokens)
+			wgWorker.Done()
+		}(req, client)
+	}
+
+	wgWorker.Wait()
+	wg.Wait()
+
+	return n, r, nil
 }
