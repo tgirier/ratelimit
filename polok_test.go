@@ -72,7 +72,6 @@ func TestMaxQPS(t *testing.T) {
 func TestRequestWithLimit(t *testing.T) {
 	initialRate := 100.0
 	requestNumber := 20
-	burstAllowed := 50
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Hello World !")
@@ -84,7 +83,7 @@ func TestRequestWithLimit(t *testing.T) {
 		t.Fatalf("request - %v", err)
 	}
 
-	got, rate, err := polok.RequestWithLimit(req, requestNumber, initialRate, burstAllowed, ts.Client())
+	got, rate, err := polok.RequestWithLimit(req, requestNumber, initialRate, ts.Client())
 
 	expectedRate := initialRate
 	want := requestNumber

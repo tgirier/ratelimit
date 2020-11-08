@@ -60,7 +60,7 @@ func Request(req *http.Request, bucket chan<- struct{}, client *http.Client) (*h
 // RequestWithLimit launches a given number of requests to a given URL at a given rate.
 // A custom http client can be provided, otherwise http default client will be used.
 // Burst defines the number of concurrent requests that are allowed to be launched at a given time.
-func RequestWithLimit(req *http.Request, reqNumber int, rate float64, burst int, client *http.Client) (number int, finalRate float64, err error) {
+func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (number int, finalRate float64, err error) {
 
 	var n int
 	var r float64
@@ -71,7 +71,7 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, burst int,
 		Rate: rate,
 	}
 
-	tokens := make(chan struct{}, burst)
+	tokens := make(chan struct{})
 
 	wg.Add(1)
 	go func() {
