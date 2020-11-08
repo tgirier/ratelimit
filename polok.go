@@ -59,7 +59,6 @@ func Request(req *http.Request, bucket chan<- struct{}, client *http.Client) (*h
 func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (number int, finalRate float64, err error) {
 
 	var n int
-	var r float64
 	var wg sync.WaitGroup
 	var wgReq sync.WaitGroup
 
@@ -75,6 +74,8 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 		wg.Done()
 	}()
 
+	start := time.Now()
+
 	for i := 0; i < reqNumber; i++ {
 		wgReq.Add(1)
 		go func(req *http.Request, client *http.Client) {
@@ -84,7 +85,13 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 	}
 
 	wgReq.Wait()
+
+	stop := time.Now()
+	duration := stop.Sub(start).Seconds()
+
 	wg.Wait()
+
+	r := float64(n) / duration
 
 	return n, r, nil
 }
