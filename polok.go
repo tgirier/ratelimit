@@ -16,13 +16,12 @@ type MaxQPS struct {
 
 // Consume consumes n tokens from the bucket channel at a given rate.
 // A token represents a single request.
-func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int, rate float64) {
+func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int) {
 
 	tickInterval := time.Duration(1e9/l.Rate) * time.Nanosecond
 	tick := time.Tick(tickInterval)
 
 	counter := 0
-	start := time.Now()
 
 	for i := 0; i < n; i++ {
 		<-tick
@@ -30,10 +29,7 @@ func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int, rate float64
 		counter++
 	}
 
-	stop := time.Now()
-	duration := stop.Sub(start).Seconds()
-
-	return counter, float64(counter) / duration
+	return counter
 }
 
 // Request makes a given request if it is able to post a token.
@@ -75,7 +71,7 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 
 	wg.Add(1)
 	go func() {
-		n, r = m.Consume(reqNumber, tokens)
+		n = m.Consume(reqNumber, tokens)
 		wg.Done()
 	}()
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/tgirier/polok"
 )
@@ -56,7 +57,14 @@ func TestMaxQPS(t *testing.T) {
 		Rate: expectedRate,
 	}
 
-	got, rate := l.Consume(total, bucket)
+	start := time.Now()
+
+	got := l.Consume(total, bucket)
+
+	stop := time.Now()
+	duration := stop.Sub(start).Seconds()
+
+	rate := float64(got) / duration
 
 	if got != total {
 		t.Fatalf("limiter - got %d requests, want %d", got, total)
