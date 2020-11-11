@@ -12,14 +12,14 @@ import (
 // Limit is responsible for enforcing a global rate limiting expressed in requests per seconds
 // Limit consumes n tokens from the bucket channel at a given rate.
 // A token represents a single request.
-func Limit(n int, rate float64, bucket <-chan struct{}) (total int) {
+func Limit(number int, rate float64, bucket <-chan struct{}) (total int) {
 
 	tickInterval := time.Duration(1e9/rate) * time.Nanosecond
 	tick := time.Tick(tickInterval)
 
 	counter := 0
 
-	for i := 0; i < n; i++ {
+	for i := 0; i < number; i++ {
 		<-tick
 		<-bucket
 		counter++
