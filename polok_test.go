@@ -42,7 +42,7 @@ func TestRequest(t *testing.T) {
 	}
 }
 
-func TestMaxQPS(t *testing.T) {
+func TestLimit(t *testing.T) {
 	expectedRate := float64(100)
 
 	total := 20
@@ -53,13 +53,9 @@ func TestMaxQPS(t *testing.T) {
 		bucket <- struct{}{}
 	}
 
-	l := polok.MaxQPS{
-		Rate: expectedRate,
-	}
-
 	start := time.Now()
 
-	got := l.Consume(total, bucket)
+	got := polok.Limit(total, expectedRate, bucket)
 
 	stop := time.Now()
 	duration := stop.Sub(start).Seconds()

@@ -9,16 +9,12 @@ import (
 	"time"
 )
 
-// MaxQPS is responsible for enforcing a global rate limiting
-type MaxQPS struct {
-	Rate float64 // query per second
-}
-
-// Consume consumes n tokens from the bucket channel at a given rate.
+// Limit is responsible for enforcing a global rate limiting expressed in requests per seconds
+// Limit consumes n tokens from the bucket channel at a given rate.
 // A token represents a single request.
-func (l *MaxQPS) Consume(n int, bucket <-chan struct{}) (total int) {
+func Limit(n int, rate float64, bucket <-chan struct{}) (total int) {
 
-	tickInterval := time.Duration(1e9/l.Rate) * time.Nanosecond
+	tickInterval := time.Duration(1e9/rate) * time.Nanosecond
 	tick := time.Tick(tickInterval)
 
 	counter := 0
@@ -61,15 +57,11 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 	var wg sync.WaitGroup
 	var wgReq sync.WaitGroup
 
-	m := MaxQPS{
-		Rate: rate,
-	}
-
 	tokens := make(chan struct{})
 
 	wg.Add(1)
 	go func() {
-		n = m.Consume(reqNumber, tokens)
+		n = Limit(reqNumber, rate, tokens)
 		wg.Done()
 	}()
 
