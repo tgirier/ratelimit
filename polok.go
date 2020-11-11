@@ -30,23 +30,25 @@ func Limit(number int, rate float64, bucket <-chan struct{}) (total int) {
 
 // Request makes a given request if it is able to post a token.
 // A custom http client can be provided, otherwise http default client will be used
-func Request(req *http.Request, bucket chan<- struct{}, client *http.Client) (*http.Response, error) {
+func Request(req *http.Request, client *http.Client, bucket chan<- struct{}, reporting chan<- *http.Response) error {
 	if client == nil {
 		client = http.DefaultClient
 	}
 
 	if req == nil {
-		return nil, errors.New("missing request")
+		return errors.New("missing request")
 	}
 
 	bucket <- struct{}{}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	return resp, nil
+	reporting <- resp
+
+	return nil
 }
 
 // Report tracks the progress of given number of requests
@@ -64,13 +66,14 @@ func Report(number int, reporting <-chan *http.Response) (responses []*http.Resp
 
 // RequestWithLimit launches a given number of requests to a given URL at a given rate.
 // A custom http client can be provided, otherwise http default client will be used.
-func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (number int, finalRate float64, err error) {
+func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (responses []*http.Response, finalRate float64, err error) {
 
 	var n int
 	var wg sync.WaitGroup
 	var wgReq sync.WaitGroup
 
 	tokens := make(chan struct{})
+	reporting := make(chan *http.Response, reqNumber)
 
 	wg.Add(1)
 	go func() {
@@ -83,7 +86,7 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 	for i := 0; i < reqNumber; i++ {
 		wgReq.Add(1)
 		go func(req *http.Request, client *http.Client) {
-			_, _ = Request(req, tokens, client)
+			_ = Request(req, client, tokens, reporting)
 			wgReq.Done()
 		}(req, client)
 	}
@@ -95,7 +98,9 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 
 	wg.Wait()
 
+	resp := Report(reqNumber, reporting)
+
 	r := float64(n) / duration
 
-	return n, r, nil
+	return resp, r, nil
 }

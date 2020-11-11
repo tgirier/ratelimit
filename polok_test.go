@@ -23,16 +23,19 @@ func TestRequest(t *testing.T) {
 	want := http.StatusOK
 
 	bucket := make(chan struct{}, 1)
+	reporting := make(chan *http.Response, 1)
 
 	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
 
-	resp, err := polok.Request(req, bucket, ts.Client())
+	err = polok.Request(req, ts.Client(), bucket, reporting)
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
+
+	resp := <-reporting
 
 	got := resp.StatusCode
 
@@ -125,8 +128,9 @@ func TestRequestWithLimit(t *testing.T) {
 		t.Fatalf("request - %v", err)
 	}
 
-	got, rate, err := polok.RequestWithLimit(req, requestNumber, initialRate, ts.Client())
+	resp, rate, err := polok.RequestWithLimit(req, requestNumber, initialRate, ts.Client())
 
+	got := len(resp)
 	expectedRate := initialRate
 	want := requestNumber
 
