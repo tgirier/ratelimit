@@ -2,8 +2,10 @@ package polok_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -73,6 +75,42 @@ func TestLimit(t *testing.T) {
 	}
 }
 
+func TestReport(t *testing.T) {
+	n := 2
+	reporting := make(chan *http.Response, n)
+	want := "Hello World !"
+
+	for i := 0; i < n; i++ {
+		resp, err := newResponse()
+		if err != nil {
+			t.Fatal(err)
+		}
+		reporting <- resp
+	}
+
+	responses := polok.Report(n, reporting)
+
+	for _, resp := range responses {
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+
+		got := strings.TrimSuffix(string(body), "\n")
+
+		if got != want {
+			t.Fatalf("got %s, want %s", got, want)
+		}
+	}
+
+	if len(responses) != n {
+		t.Fatalf("expected %d responses, got %d", n, len(responses))
+	}
+
+}
+
 func TestRequestWithLimit(t *testing.T) {
 	initialRate := 100.0
 	requestNumber := 20
@@ -98,4 +136,23 @@ func TestRequestWithLimit(t *testing.T) {
 	if rate > expectedRate {
 		t.Fatalf("request - rate %v, expected %v", rate, expectedRate)
 	}
+}
+
+func newResponse() (*http.Response, error) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello World !")
+	}))
+	defer ts.Close()
+
+	req, err := http.NewRequest("GET", ts.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
 }

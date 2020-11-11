@@ -49,6 +49,19 @@ func Request(req *http.Request, bucket chan<- struct{}, client *http.Client) (*h
 	return resp, nil
 }
 
+// Report tracks the progress of given number of requests
+// It aggregates the results within a list of responses
+func Report(number int, reporting <-chan *http.Response) (responses []*http.Response) {
+	var resp []*http.Response
+
+	for i := 0; i < number; i++ {
+		r := <-reporting
+		resp = append(resp, r)
+	}
+
+	return resp
+}
+
 // RequestWithLimit launches a given number of requests to a given URL at a given rate.
 // A custom http client can be provided, otherwise http default client will be used.
 func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (number int, finalRate float64, err error) {
