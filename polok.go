@@ -28,7 +28,7 @@ func Limit(number int, rate float64, bucket <-chan struct{}) {
 
 // Request makes a given request if it is able to post a token.
 // A custom http client can be provided, otherwise http default client will be used
-func Request(req *http.Request, client *http.Client, bucket chan<- struct{}, reporting chan<- *http.Response) error {
+func Request(req *http.Request, client *http.Client, bucket chan<- struct{}, reporting chan<- *http.Response, wg *sync.WaitGroup) error {
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -46,7 +46,33 @@ func Request(req *http.Request, client *http.Client, bucket chan<- struct{}, rep
 
 	reporting <- resp
 
+	wg.Done()
+
 	return nil
+}
+
+// Requests makes a given list of requests.
+// It launches as many Request goroutines as they are requests provided.
+// It calculates the overall rate of the requests.
+func Requests(requests []*http.Request, client *http.Client, bucket chan<- struct{}, reporting chan<- *http.Response) (rate float64, err error) {
+	var wg sync.WaitGroup
+
+	wg.Add(len(requests))
+
+	start := time.Now()
+
+	for _, req := range requests {
+		go Request(req, client, bucket, reporting, &wg)
+	}
+
+	wg.Wait()
+
+	stop := time.Now()
+	duration := stop.Sub(start).Seconds()
+
+	rate = float64(len(requests)) / duration
+
+	return rate, nil
 }
 
 // Report tracks the progress of given number of requests
@@ -66,31 +92,17 @@ func Report(number int, reporting <-chan *http.Response) (responses []*http.Resp
 // A custom http client can be provided, otherwise http default client will be used.
 func RequestWithLimit(requests []*http.Request, rate float64, client *http.Client) (responses []*http.Response, finalRate float64, err error) {
 
-	var wgReq sync.WaitGroup
-
 	tokens := make(chan struct{})
 	reporting := make(chan *http.Response, len(requests))
 
 	go Limit(len(requests), rate, tokens)
 
-	start := time.Now()
-
-	for _, req := range requests {
-		wgReq.Add(1)
-		go func(req *http.Request, client *http.Client) {
-			_ = Request(req, client, tokens, reporting)
-			wgReq.Done()
-		}(req, client)
+	rate, err = Requests(requests, client, tokens, reporting)
+	if err != nil {
+		return []*http.Response{}, 0, err
 	}
-
-	wgReq.Wait()
-
-	stop := time.Now()
-	duration := stop.Sub(start).Seconds()
 
 	resp := Report(len(requests), reporting)
 
-	r := float64(len(requests)) / duration
-
-	return resp, r, nil
+	return resp, rate, nil
 }

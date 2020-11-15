@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ func TestRequest(t *testing.T) {
 	method := "GET"
 	url := ts.URL
 	want := http.StatusOK
+	var wg sync.WaitGroup
 
 	bucket := make(chan struct{}, 1)
 	reporting := make(chan *http.Response, 1)
@@ -30,7 +32,9 @@ func TestRequest(t *testing.T) {
 		t.Fatalf("worker - %v", err)
 	}
 
-	err = polok.Request(req, ts.Client(), bucket, reporting)
+	wg.Add(1)
+
+	err = polok.Request(req, ts.Client(), bucket, reporting, &wg)
 	if err != nil {
 		t.Fatalf("worker - %v", err)
 	}
