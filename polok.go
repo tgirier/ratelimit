@@ -10,9 +10,9 @@ import (
 )
 
 // Limit is responsible for enforcing a global rate limiting expressed in requests per seconds
-// Limit consumes n tokens from the bucket channel at a given rate.
+// Limit consumes a given number of tokens from the bucket channel at a given rate.
 // A token represents a single request.
-func Limit(number int, rate float64, bucket <-chan struct{}) (total int) {
+func Limit(number int, rate float64, bucket <-chan struct{}) {
 
 	tickInterval := time.Duration(1e9/rate) * time.Nanosecond
 	tick := time.Tick(tickInterval)
@@ -24,8 +24,6 @@ func Limit(number int, rate float64, bucket <-chan struct{}) (total int) {
 		<-bucket
 		counter++
 	}
-
-	return counter
 }
 
 // Request makes a given request if it is able to post a token.
@@ -68,7 +66,6 @@ func Report(number int, reporting <-chan *http.Response) (responses []*http.Resp
 // A custom http client can be provided, otherwise http default client will be used.
 func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (responses []*http.Response, finalRate float64, err error) {
 
-	var n int
 	var wg sync.WaitGroup
 	var wgReq sync.WaitGroup
 
@@ -77,7 +74,7 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 
 	wg.Add(1)
 	go func() {
-		n = Limit(reqNumber, rate, tokens)
+		Limit(reqNumber, rate, tokens)
 		wg.Done()
 	}()
 
@@ -100,7 +97,7 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 
 	resp := Report(reqNumber, reporting)
 
-	r := float64(n) / duration
+	r := float64(reqNumber) / duration
 
 	return resp, r, nil
 }

@@ -60,20 +60,17 @@ func TestLimit(t *testing.T) {
 
 	start := time.Now()
 
-	got := polok.Limit(total, expectedRate, bucket)
+	polok.Limit(total, expectedRate, bucket)
 
 	stop := time.Now()
 	duration := stop.Sub(start).Seconds()
 
-	rate := float64(got) / duration
+	rate := float64(total) / duration
 
-	if got != total {
-		t.Fatalf("limiter - got %d requests, want %d", got, total)
-	}
 	if rate > expectedRate {
 		t.Fatalf("limiter - rate %v, expected %v", rate, expectedRate)
 	}
-	if len(bucket) > 0 {
+	if len(bucket) != 0 {
 		t.Fatalf("limiter - remaining tokens in bucket %v", len(bucket))
 	}
 }
