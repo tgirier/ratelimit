@@ -66,17 +66,12 @@ func Report(number int, reporting <-chan *http.Response) (responses []*http.Resp
 // A custom http client can be provided, otherwise http default client will be used.
 func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (responses []*http.Response, finalRate float64, err error) {
 
-	var wg sync.WaitGroup
 	var wgReq sync.WaitGroup
 
 	tokens := make(chan struct{})
 	reporting := make(chan *http.Response, reqNumber)
 
-	wg.Add(1)
-	go func() {
-		Limit(reqNumber, rate, tokens)
-		wg.Done()
-	}()
+	go Limit(reqNumber, rate, tokens)
 
 	start := time.Now()
 
@@ -92,8 +87,6 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 
 	stop := time.Now()
 	duration := stop.Sub(start).Seconds()
-
-	wg.Wait()
 
 	resp := Report(reqNumber, reporting)
 
