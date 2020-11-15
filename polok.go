@@ -64,18 +64,18 @@ func Report(number int, reporting <-chan *http.Response) (responses []*http.Resp
 
 // RequestWithLimit launches a given number of requests to a given URL at a given rate.
 // A custom http client can be provided, otherwise http default client will be used.
-func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *http.Client) (responses []*http.Response, finalRate float64, err error) {
+func RequestWithLimit(requests []*http.Request, rate float64, client *http.Client) (responses []*http.Response, finalRate float64, err error) {
 
 	var wgReq sync.WaitGroup
 
 	tokens := make(chan struct{})
-	reporting := make(chan *http.Response, reqNumber)
+	reporting := make(chan *http.Response, len(requests))
 
-	go Limit(reqNumber, rate, tokens)
+	go Limit(len(requests), rate, tokens)
 
 	start := time.Now()
 
-	for i := 0; i < reqNumber; i++ {
+	for _, req := range requests {
 		wgReq.Add(1)
 		go func(req *http.Request, client *http.Client) {
 			_ = Request(req, client, tokens, reporting)
@@ -88,9 +88,9 @@ func RequestWithLimit(req *http.Request, reqNumber int, rate float64, client *ht
 	stop := time.Now()
 	duration := stop.Sub(start).Seconds()
 
-	resp := Report(reqNumber, reporting)
+	resp := Report(len(requests), reporting)
 
-	r := float64(reqNumber) / duration
+	r := float64(len(requests)) / duration
 
 	return resp, r, nil
 }

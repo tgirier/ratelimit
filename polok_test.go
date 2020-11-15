@@ -114,18 +114,25 @@ func TestReport(t *testing.T) {
 func TestRequestWithLimit(t *testing.T) {
 	initialRate := 100.0
 	requestNumber := 20
+	var requests []*http.Request
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintln(w, "Hello World !")
 	}))
 	defer ts.Close()
 
-	req, err := http.NewRequest("GET", ts.URL, nil)
-	if err != nil {
-		t.Fatalf("request - %v", err)
+	for i := 0; i < requestNumber; i++ {
+		req, err := http.NewRequest("GET", ts.URL, nil)
+		if err != nil {
+			t.Fatalf("request - %v", err)
+		}
+		requests = append(requests, req)
 	}
 
-	resp, rate, err := polok.RequestWithLimit(req, requestNumber, initialRate, ts.Client())
+	resp, rate, err := polok.RequestWithLimit(requests, initialRate, ts.Client())
+	if err != nil {
+		t.Fatalf("request with limit - %v", err)
+	}
 
 	got := len(resp)
 	expectedRate := initialRate
