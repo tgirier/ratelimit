@@ -86,6 +86,35 @@ func TestNewRequest(t *testing.T) {
 	}
 }
 
+func TestResponseStreamMerge(t *testing.T) {
+	var streams []chan *http.Response
+
+	streamsNumber := 2
+
+	done := make(chan struct{})
+	defer close(done)
+
+	for i := 0; i < streamsNumber; i++ {
+		stream := make(chan *http.Response, 1)
+		res, err := newResponse()
+		if err != nil {
+			t.Fatal(err)
+		}
+		stream <- res
+		streams = append(streams, stream)
+	}
+
+	result := polok.ResponseStreamsMerge(done, streams...)
+
+	for i := 0; i < streamsNumber; i++ {
+		<-result
+	}
+
+	if len(result) != 0 {
+		t.Fatalf("got %v messages left in merged channel", len(result))
+	}
+}
+
 func TestLimit(t *testing.T) {
 	expectedRate := float64(100)
 

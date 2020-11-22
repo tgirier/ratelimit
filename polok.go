@@ -84,6 +84,36 @@ func NewRequester(done <-chan struct{}, inputStream <-chan *http.Request, bucket
 	return resultStream
 }
 
+// ResponseStreamsMerge merges multiple response streams into one single stream
+func ResponseStreamsMerge(done <-chan struct{}, inputStreams ...chan *http.Response) (responseStream <-chan *http.Response) {
+	var wg sync.WaitGroup
+	multiplexedStream := make(chan *http.Response)
+
+	multiplex := func(stream <-chan *http.Response) {
+		defer wg.Done()
+		for {
+			select {
+			case <-done:
+				return
+			case res := <-stream:
+				multiplexedStream <- res
+			}
+		}
+	}
+
+	wg.Add(len(inputStreams))
+	for _, stream := range inputStreams {
+		go multiplex(stream)
+	}
+
+	go func() {
+		wg.Wait()
+		close(multiplexedStream)
+	}()
+
+	return multiplexedStream
+}
+
 // Requests makes a given list of requests.
 // It launches as many Request goroutines as they are requests provided.
 // It calculates the overall rate of the requests.
