@@ -4,6 +4,7 @@ package polok
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"sync"
 	"time"
@@ -49,6 +50,38 @@ func Request(req *http.Request, client *http.Client, bucket chan<- struct{}, rep
 	wg.Done()
 
 	return nil
+}
+
+// NewRequester makes HTTP requests.
+// It listens to an incoming stream of requests and return a channel of corresponding responses.
+func NewRequester(done <-chan struct{}, inputStream <-chan *http.Request, bucket chan<- struct{}, client *http.Client) (responseStream <-chan *http.Response) {
+	resultStream := make(chan *http.Response)
+
+	if client == nil {
+		client = http.DefaultClient
+	}
+
+	go func() {
+		defer close(resultStream)
+		for {
+			select {
+			case <-done:
+				return
+			case req := <-inputStream:
+				if req == nil {
+					fmt.Println("missing request")
+					continue
+				}
+				bucket <- struct{}{}
+				res, err := client.Do(req)
+				if err != nil {
+					fmt.Printf("request failed, %v", err)
+				}
+				resultStream <- res
+			}
+		}
+	}()
+	return resultStream
 }
 
 // Requests makes a given list of requests.

@@ -51,6 +51,41 @@ func TestRequest(t *testing.T) {
 	}
 }
 
+func TestNewRequest(t *testing.T) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello World !")
+	}))
+	defer ts.Close()
+
+	method := "GET"
+	url := ts.URL
+	want := http.StatusOK
+	done := make(chan struct{})
+	defer close(done)
+
+	bucket := make(chan struct{}, 1)
+	input := make(chan *http.Request, 1)
+
+	req, err := http.NewRequest(method, url, nil)
+	if err != nil {
+		t.Fatalf("request - %v", err)
+	}
+
+	input <- req
+
+	result := polok.NewRequester(done, input, bucket, ts.Client())
+
+	res := <-result
+	got := res.StatusCode
+
+	if got != want {
+		t.Fatalf("new request - got %v, want %v", got, want)
+	}
+	if len(result) != 0 {
+		t.Fatalf("new request - %v responses left in channel", len(result))
+	}
+}
+
 func TestLimit(t *testing.T) {
 	expectedRate := float64(100)
 
