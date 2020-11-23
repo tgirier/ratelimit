@@ -87,7 +87,7 @@ func TestNewRequest(t *testing.T) {
 }
 
 func TestResponseStreamMerge(t *testing.T) {
-	var streams []chan *http.Response
+	var streams []<-chan *http.Response
 
 	streamsNumber := 2
 
@@ -115,31 +115,59 @@ func TestResponseStreamMerge(t *testing.T) {
 	}
 }
 
-func TestLimit(t *testing.T) {
-	expectedRate := float64(100)
+func TestPipelineDo(t *testing.T) {
+	expectedRate := 1.0
+	numWorkers := 2
+	numRequests := 3
 
-	total := 20
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello World!")
+	}))
 
-	bucket := make(chan struct{}, 20)
+	method := "GET"
+	url := ts.URL
+	want := http.StatusOK
 
-	for i := 0; i < 20; i++ {
-		bucket <- struct{}{}
+	p := polok.Pipeline{
+		Rate:         expectedRate,
+		WorkerNumber: numWorkers,
+		Client:       ts.Client(),
+	}
+
+	input := make(chan *http.Request, numRequests)
+	done := make(chan struct{})
+	defer close(done)
+
+	for i := 0; i < numRequests; i++ {
+		req, err := http.NewRequest(method, url, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		input <- req
 	}
 
 	start := time.Now()
 
-	polok.Limit(total, expectedRate, bucket)
+	results := p.Do(done, input)
+
+	for i := 0; i < numRequests; i++ {
+		res := <-results
+		got := res.StatusCode
+		if got != want {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
 
 	stop := time.Now()
 	duration := stop.Sub(start).Seconds()
 
-	rate := float64(total) / duration
+	rate := float64(numRequests) / duration
 
-	if rate > expectedRate {
-		t.Fatalf("limiter - rate %v, expected %v", rate, expectedRate)
+	if len(results) != 0 {
+		t.Fatalf("remaining %d messages in results channel", len(results))
 	}
-	if len(bucket) != 0 {
-		t.Fatalf("limiter - remaining tokens in bucket %v", len(bucket))
+	if rate > expectedRate {
+		t.Fatalf("rate %v, expected %v", rate, expectedRate)
 	}
 }
 
