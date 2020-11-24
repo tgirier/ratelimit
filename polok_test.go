@@ -11,6 +11,7 @@ import (
 )
 
 func TestPipelineRun(t *testing.T) {
+	t.Parallel()
 	expectedRate := 1.0
 	numWorkers := 2
 	numRequests := 3
