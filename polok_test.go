@@ -28,10 +28,9 @@ func TestPipelineRun(t *testing.T) {
 		WorkerNumber: numWorkers,
 		Client:       ts.Client(),
 	}
+	defer p.Stop()
 
 	input := make(chan *http.Request, numRequests)
-	done := make(chan struct{})
-	defer close(done)
 
 	for i := 0; i < numRequests; i++ {
 		req, err := http.NewRequest(method, url, nil)
@@ -43,7 +42,7 @@ func TestPipelineRun(t *testing.T) {
 
 	start := time.Now()
 
-	results := p.Run(done, input)
+	results := p.Run(input)
 
 	for i := 0; i < numRequests; i++ {
 		res := <-results

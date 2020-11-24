@@ -12,15 +12,17 @@ import (
 // Pipeline represents a data pipeline that executes a given function on a given dataset.
 // The pipeline execution can be rate limited.
 type Pipeline struct {
-	Rate         float64      // Rate at which the pipeline should be limited
-	WorkerNumber int          // Number of workers to spin up to execute the given functionality
-	Client       *http.Client // Client to use for http calls
+	Rate         float64       // Rate at which the pipeline should be limited
+	WorkerNumber int           // Number of workers to spin up to execute the given functionality
+	Client       *http.Client  // Client to use for http calls
+	done         chan struct{} // Done channel triggering pipleine cancellation
 }
 
 // Run spins up a pipeline and launches the execution
 // Closing the done channel cancel the whole pipeline
-func (p *Pipeline) Run(done <-chan struct{}, inputStream <-chan *http.Request) (responseStream <-chan *http.Response) {
+func (p *Pipeline) Run(inputStream <-chan *http.Request) (responseStream <-chan *http.Response) {
 	resultStream := make(chan *http.Response)
+	p.done = make(chan struct{})
 
 	go func() {
 		defer close(resultStream)
@@ -29,17 +31,17 @@ func (p *Pipeline) Run(done <-chan struct{}, inputStream <-chan *http.Request) (
 		var workerResultSteams []<-chan *http.Response
 
 		for i := 0; i < p.WorkerNumber; i++ {
-			result := p.do(done, inputStream, bucket)
+			result := p.do(inputStream, bucket)
 			workerResultSteams = append(workerResultSteams, result)
 		}
 
 		p.limit(bucket)
 
-		mergedStream := p.responseStreamsMerge(done, workerResultSteams...)
+		mergedStream := p.responseStreamsMerge(workerResultSteams...)
 
 		for {
 			select {
-			case <-done:
+			case <-p.done:
 				return
 			case res := <-mergedStream:
 				resultStream <- res
@@ -49,6 +51,13 @@ func (p *Pipeline) Run(done <-chan struct{}, inputStream <-chan *http.Request) (
 	}()
 
 	return resultStream
+}
+
+// Stop cancels a running pipeline.
+// It closes the internal done channel of the pipeline.
+// It cancels all goroutines belonging to this pipeline.
+func (p *Pipeline) Stop() {
+	close(p.done)
 }
 
 // Limit is responsible for enforcing a global rate limiting expressed in requests per seconds
@@ -68,7 +77,7 @@ func (p *Pipeline) limit(bucket <-chan struct{}) {
 
 // Do makes HTTP requests.
 // It listens to an incoming stream of requests and return a channel of corresponding responses.
-func (p *Pipeline) do(done <-chan struct{}, inputStream <-chan *http.Request, bucket chan<- struct{}) (responseStream <-chan *http.Response) {
+func (p *Pipeline) do(inputStream <-chan *http.Request, bucket chan<- struct{}) (responseStream <-chan *http.Response) {
 	resultStream := make(chan *http.Response)
 
 	client := p.Client
@@ -80,7 +89,7 @@ func (p *Pipeline) do(done <-chan struct{}, inputStream <-chan *http.Request, bu
 		defer close(resultStream)
 		for {
 			select {
-			case <-done:
+			case <-p.done:
 				return
 			case req := <-inputStream:
 				if req == nil {
@@ -100,7 +109,7 @@ func (p *Pipeline) do(done <-chan struct{}, inputStream <-chan *http.Request, bu
 }
 
 // responseStreamsMerge merges multiple response streams into one single stream
-func (p *Pipeline) responseStreamsMerge(done <-chan struct{}, inputStreams ...<-chan *http.Response) (responseStream <-chan *http.Response) {
+func (p *Pipeline) responseStreamsMerge(inputStreams ...<-chan *http.Response) (responseStream <-chan *http.Response) {
 	var wg sync.WaitGroup
 	multiplexedStream := make(chan *http.Response)
 
@@ -108,7 +117,7 @@ func (p *Pipeline) responseStreamsMerge(done <-chan struct{}, inputStreams ...<-
 		defer wg.Done()
 		for {
 			select {
-			case <-done:
+			case <-p.done:
 				return
 			case res := <-stream:
 				multiplexedStream <- res
