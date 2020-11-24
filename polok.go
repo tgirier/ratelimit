@@ -137,3 +137,16 @@ func (p *Pipeline) responseStreamsMerge(inputStreams ...<-chan *http.Response) (
 
 	return multiplexedStream
 }
+
+// SlicetoStream transforms a slice of value into an input stream
+// It enables to input a slice of value into a pipeline
+func SlicetoStream(inputs ...*http.Request) (generatedStream <-chan *http.Request) {
+	outStream := make(chan *http.Request)
+	go func() {
+		defer close(outStream)
+		for _, req := range inputs {
+			outStream <- req
+		}
+	}()
+	return outStream
+}
