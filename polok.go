@@ -150,3 +150,14 @@ func SlicetoStream(inputs ...*http.Request) (generatedStream <-chan *http.Reques
 	}()
 	return outStream
 }
+
+// StreamtoSlice transforms an outputStream into a slice of values
+// It enables to collect a define number of values out of a pipeline.
+func StreamtoSlice(outputStream <-chan *http.Response, numberToTake int) (output []*http.Response) {
+	var outputSlice []*http.Response
+	for i := 0; i < numberToTake; i++ {
+		res := <-outputStream
+		outputSlice = append(outputSlice, res)
+	}
+	return outputSlice
+}

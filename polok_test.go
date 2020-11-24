@@ -96,3 +96,42 @@ func TestSlicetoStream(t *testing.T) {
 		t.Fatalf("%v remaining messages in result stream", len(resultStream))
 	}
 }
+
+func TestStreamtoSlice(t *testing.T) {
+	t.Parallel()
+	numResponse := 3
+	stream := make(chan *http.Response, numResponse)
+
+	for i := 0; i < numResponse; i++ {
+		res, err := newResponse()
+		if err != nil {
+			t.Fatal(err)
+		}
+		stream <- res
+	}
+
+	out := polok.StreamtoSlice(stream, numResponse)
+
+	if len(out) != numResponse {
+		t.Fatalf("got slice of length %v, want %v", len(out), numResponse)
+	}
+}
+
+func newResponse() (*http.Response, error) {
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "Hello World !")
+	}))
+	defer ts.Close()
+
+	req, err := http.NewRequest("GET", ts.URL, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := ts.Client().Do(req)
+	if err != nil {
+		return nil, err
+	}
+
+	return resp, nil
+}
