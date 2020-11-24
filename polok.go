@@ -9,12 +9,54 @@ import (
 	"time"
 )
 
+// Pipeline represents a data pipeline that executes a given function on a given dataset.
+// The pipeline execution can be rate limited.
+type Pipeline struct {
+	Rate         float64      // Rate at which the pipeline should be limited
+	WorkerNumber int          // Number of workers to spin up to execute the given functionality
+	Client       *http.Client // Client to use for http calls
+}
+
+// Run spins up a pipeline and launches the execution
+// Closing the done channel cancel the whole pipeline
+func (p *Pipeline) Run(done <-chan struct{}, inputStream <-chan *http.Request) (responseStream <-chan *http.Response) {
+	resultStream := make(chan *http.Response)
+
+	go func() {
+		defer close(resultStream)
+		bucket := make(chan struct{})
+
+		var workerResultSteams []<-chan *http.Response
+
+		for i := 0; i < p.WorkerNumber; i++ {
+			result := p.do(done, inputStream, bucket)
+			workerResultSteams = append(workerResultSteams, result)
+		}
+
+		p.limit(bucket)
+
+		mergedStream := p.responseStreamsMerge(done, workerResultSteams...)
+
+		for {
+			select {
+			case <-done:
+				return
+			case res := <-mergedStream:
+				resultStream <- res
+			}
+		}
+
+	}()
+
+	return resultStream
+}
+
 // Limit is responsible for enforcing a global rate limiting expressed in requests per seconds
 // Limit consumes a given number of tokens from the bucket channel at a given rate.
 // A token represents a single request.
-func Limit(rate float64, bucket <-chan struct{}) {
+func (p *Pipeline) limit(bucket <-chan struct{}) {
 	go func() {
-		tickInterval := time.Duration(1e9/rate) * time.Nanosecond
+		tickInterval := time.Duration(1e9/p.Rate) * time.Nanosecond
 		tick := time.Tick(tickInterval)
 
 		for {
@@ -24,11 +66,12 @@ func Limit(rate float64, bucket <-chan struct{}) {
 	}()
 }
 
-// NewRequester makes HTTP requests.
+// Do makes HTTP requests.
 // It listens to an incoming stream of requests and return a channel of corresponding responses.
-func NewRequester(done <-chan struct{}, inputStream <-chan *http.Request, bucket chan<- struct{}, client *http.Client) (responseStream <-chan *http.Response) {
+func (p *Pipeline) do(done <-chan struct{}, inputStream <-chan *http.Request, bucket chan<- struct{}) (responseStream <-chan *http.Response) {
 	resultStream := make(chan *http.Response)
 
+	client := p.Client
 	if client == nil {
 		client = http.DefaultClient
 	}
@@ -56,8 +99,8 @@ func NewRequester(done <-chan struct{}, inputStream <-chan *http.Request, bucket
 	return resultStream
 }
 
-// ResponseStreamsMerge merges multiple response streams into one single stream
-func ResponseStreamsMerge(done <-chan struct{}, inputStreams ...<-chan *http.Response) (responseStream <-chan *http.Response) {
+// responseStreamsMerge merges multiple response streams into one single stream
+func (p *Pipeline) responseStreamsMerge(done <-chan struct{}, inputStreams ...<-chan *http.Response) (responseStream <-chan *http.Response) {
 	var wg sync.WaitGroup
 	multiplexedStream := make(chan *http.Response)
 
@@ -84,46 +127,4 @@ func ResponseStreamsMerge(done <-chan struct{}, inputStreams ...<-chan *http.Res
 	}()
 
 	return multiplexedStream
-}
-
-// Pipeline represents a data pipeline that executes a given function on a given dataset.
-// The pipeline execution can be rate limited.
-type Pipeline struct {
-	Rate         float64      // Rate at which the pipeline should be limited
-	WorkerNumber int          // Number of workers to spin up to execute the given functionality
-	Client       *http.Client // Client to use for http calls
-}
-
-// Do spins up a pipeline and launches the execution
-// Closing the done channel cancel the whole pipeline
-func (p *Pipeline) Do(done <-chan struct{}, inputStream <-chan *http.Request) (responseStream <-chan *http.Response) {
-	resultStream := make(chan *http.Response)
-
-	go func() {
-		defer close(resultStream)
-		bucket := make(chan struct{})
-
-		var workerResultSteams []<-chan *http.Response
-
-		for i := 0; i < p.WorkerNumber; i++ {
-			result := NewRequester(done, inputStream, bucket, p.Client)
-			workerResultSteams = append(workerResultSteams, result)
-		}
-
-		Limit(p.Rate, bucket)
-
-		mergedStream := ResponseStreamsMerge(done, workerResultSteams...)
-
-		for {
-			select {
-			case <-done:
-				return
-			case res := <-mergedStream:
-				resultStream <- res
-			}
-		}
-
-	}()
-
-	return resultStream
 }
