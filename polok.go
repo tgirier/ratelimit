@@ -5,7 +5,6 @@ package polok
 import (
 	"fmt"
 	"net/http"
-	"sync"
 	"time"
 )
 
@@ -25,7 +24,6 @@ func (p *Pipeline) Run(inputStream <-chan *http.Request) (responseStream <-chan 
 	p.done = make(chan struct{})
 
 	go func() {
-		defer close(resultStream)
 		bucket := make(chan struct{})
 
 		var workerResultSteams []<-chan *http.Response
@@ -68,8 +66,7 @@ func (p *Pipeline) limit(bucket <-chan struct{}) {
 		tickInterval := time.Duration(1e9/p.Rate) * time.Nanosecond
 		tick := time.Tick(tickInterval)
 
-		for {
-			<-tick
+		for range tick {
 			<-bucket
 		}
 	}()
@@ -86,16 +83,11 @@ func (p *Pipeline) do(inputStream <-chan *http.Request, bucket chan<- struct{}) 
 	}
 
 	go func() {
-		defer close(resultStream)
 		for {
 			select {
 			case <-p.done:
 				return
 			case req := <-inputStream:
-				if req == nil {
-					fmt.Println("missing request")
-					continue
-				}
 				bucket <- struct{}{}
 				res, err := client.Do(req)
 				if err != nil {
@@ -110,11 +102,9 @@ func (p *Pipeline) do(inputStream <-chan *http.Request, bucket chan<- struct{}) 
 
 // responseStreamsMerge merges multiple response streams into one single stream
 func (p *Pipeline) responseStreamsMerge(inputStreams ...<-chan *http.Response) (responseStream <-chan *http.Response) {
-	var wg sync.WaitGroup
 	multiplexedStream := make(chan *http.Response)
 
 	multiplex := func(stream <-chan *http.Response) {
-		defer wg.Done()
 		for {
 			select {
 			case <-p.done:
@@ -125,25 +115,18 @@ func (p *Pipeline) responseStreamsMerge(inputStreams ...<-chan *http.Response) (
 		}
 	}
 
-	wg.Add(len(inputStreams))
 	for _, stream := range inputStreams {
 		go multiplex(stream)
 	}
-
-	go func() {
-		wg.Wait()
-		close(multiplexedStream)
-	}()
 
 	return multiplexedStream
 }
 
 // SlicetoStream transforms a slice of value into an input stream
 // It enables to input a slice of value into a pipeline
-func SlicetoStream(inputs ...*http.Request) (generatedStream <-chan *http.Request) {
+func SlicetoStream(inputs []*http.Request) (generatedStream <-chan *http.Request) {
 	outStream := make(chan *http.Request)
 	go func() {
-		defer close(outStream)
 		for _, req := range inputs {
 			outStream <- req
 		}

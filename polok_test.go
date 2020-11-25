@@ -86,7 +86,7 @@ func TestSlicetoStream(t *testing.T) {
 		inputRequests = append(inputRequests, req)
 	}
 
-	resultStream := polok.SlicetoStream(inputRequests...)
+	resultStream := polok.SlicetoStream(inputRequests)
 
 	for i := 0; i < numRequests; i++ {
 		<-resultStream
