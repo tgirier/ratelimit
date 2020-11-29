@@ -26,9 +26,7 @@ func (c *RateLimitedHTTPClient) Get(url string) (*http.Response, error) {
 	c.initializeTicker()
 	c.initializeClient()
 
-	if c.ticker != nil {
-		<-c.ticker.C
-	}
+	c.rateLimit()
 
 	return c.client.Get(url)
 }
@@ -38,9 +36,7 @@ func (c *RateLimitedHTTPClient) Do(req *http.Request) (*http.Response, error) {
 	c.initializeTicker()
 	c.initializeClient()
 
-	if c.ticker != nil {
-		<-c.ticker.C
-	}
+	c.rateLimit()
 
 	return c.client.Do(req)
 }
@@ -71,4 +67,11 @@ func (c *RateLimitedHTTPClient) initializeClient() {
 	}
 
 	c.clientInitialized = true
+}
+
+// rateLimit wait for a tick if the client is rate limited.
+func (c *RateLimitedHTTPClient) rateLimit() {
+	if c.ticker != nil {
+		<-c.ticker.C
+	}
 }
