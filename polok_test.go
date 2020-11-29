@@ -58,3 +58,65 @@ func TestGet(t *testing.T) {
 	}
 
 }
+
+func TestDo(t *testing.T) {
+	t.Parallel()
+
+	type Request struct {
+		Method string
+		URL    string
+	}
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello World !")
+	}))
+
+	testCases := []struct {
+		name         string
+		requests     []Request
+		expectedRate float64
+		client       *http.Client
+	}{
+		{name: "2 requests - 1 QPS", requests: []Request{{Method: "GET", URL: ts.URL}, {Method: "GET", URL: ts.URL}}, expectedRate: 1.0, client: ts.Client()},
+	}
+
+	for _, tc := range testCases {
+		var wg sync.WaitGroup
+		var requests []*http.Request
+
+		for _, req := range tc.requests {
+			httpReq, err := http.NewRequest(req.Method, req.URL, nil)
+			if err != nil {
+				t.Fatalf("%v - %v", tc.name, err)
+			}
+			requests = append(requests, httpReq)
+		}
+
+		c := polok.RateLimitedHTTPClient{
+			Transport: tc.client.Transport,
+		}
+		c.Rate = tc.expectedRate
+
+		start := time.Now()
+
+		wg.Add(len(requests))
+
+		for _, req := range requests {
+			go func(req *http.Request) {
+				c.Do(req)
+				wg.Done()
+			}(req)
+		}
+
+		wg.Wait()
+
+		stop := time.Now()
+		duration := stop.Sub(start).Seconds()
+		effectiveRate := float64(len(tc.requests)) / duration
+
+		if effectiveRate > tc.expectedRate {
+			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
+		}
+	}
+
+}

@@ -33,6 +33,18 @@ func (c *RateLimitedHTTPClient) Get(url string) (*http.Response, error) {
 	return c.client.Get(url)
 }
 
+// Do sends an http request.
+func (c *RateLimitedHTTPClient) Do(req *http.Request) (*http.Response, error) {
+	c.initializeTicker()
+	c.initializeClient()
+
+	if c.ticker != nil {
+		<-c.ticker.C
+	}
+
+	return c.client.Do(req)
+}
+
 // initializeTicker sets up a client time ticker base on the provided rate.
 func (c *RateLimitedHTTPClient) initializeTicker() {
 	if c.tickerInitialized {
