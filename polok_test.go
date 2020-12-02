@@ -30,9 +30,8 @@ func TestGet(t *testing.T) {
 	for _, tc := range testCases {
 		var wg sync.WaitGroup
 
-		c := polok.RateLimitedHTTPClient{
-			Transport: tc.client.Transport,
-		}
+		c := polok.RateLimitedHTTPClient{}
+		c.Client = tc.client
 		c.Rate = tc.expectedRate
 
 		start := time.Now()
@@ -92,9 +91,8 @@ func TestDo(t *testing.T) {
 			requests = append(requests, httpReq)
 		}
 
-		c := polok.RateLimitedHTTPClient{
-			Transport: tc.client.Transport,
-		}
+		c := polok.RateLimitedHTTPClient{}
+		c.Client = ts.Client()
 		c.Rate = tc.expectedRate
 
 		start := time.Now()
