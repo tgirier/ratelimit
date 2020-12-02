@@ -16,6 +16,17 @@ type HTTPClient struct {
 	ticker *time.Ticker
 }
 
+// DoWithRateLimit issues a rate limited do request.
+// All requests issued by this client using RateLimit methods share a common rate limiter.
+// Those reuqests are waiting for an available tick from a ticker channel.
+func (c *HTTPClient) DoWithRateLimit(req *http.Request) (resp *http.Response, err error) {
+	if c.ticker != nil {
+		<-c.ticker.C
+	}
+
+	return c.Do(req)
+}
+
 // GetWithRateLimit issues a rate lmited get request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
@@ -26,15 +37,14 @@ func (c *HTTPClient) GetWithRateLimit(url string) (resp *http.Response, err erro
 	return c.Get(url)
 }
 
-// DoWithRateLimit issues a rate limited do request.
+// HeadWithRateLimit issues a rate lmited head request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) DoWithRateLimit(req *http.Request) (resp *http.Response, err error) {
+func (c *HTTPClient) HeadWithRateLimit(url string) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
-
-	return c.Do(req)
+	return c.Head(url)
 }
 
 // PostWithRateLimit issues a rate limited post request.

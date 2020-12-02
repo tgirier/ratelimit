@@ -12,52 +12,6 @@ import (
 	"github.com/tgirier/ratelimit"
 )
 
-func TestGetWithRateLimit(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello World !")
-	}))
-
-	testCases := []struct {
-		name         string
-		requests     []string
-		expectedRate float64
-		client       *http.Client
-	}{
-		{name: "2 requests - 1 QPS", requests: []string{ts.URL, ts.URL}, expectedRate: 1.0, client: ts.Client()},
-	}
-
-	for _, tc := range testCases {
-		var wg sync.WaitGroup
-
-		c := ratelimit.NewHTTPClient(tc.expectedRate)
-		c.Transport = ts.Client().Transport
-
-		start := time.Now()
-
-		wg.Add(len(tc.requests))
-
-		for _, req := range tc.requests {
-			go func(req string) {
-				c.GetWithRateLimit(req)
-				wg.Done()
-			}(req)
-		}
-
-		wg.Wait()
-
-		stop := time.Now()
-		duration := stop.Sub(start).Seconds()
-		effectiveRate := float64(len(tc.requests)) / duration
-
-		if effectiveRate > tc.expectedRate {
-			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
-		}
-	}
-
-}
-
 func TestDoWithRateLimit(t *testing.T) {
 	t.Parallel()
 
@@ -115,7 +69,96 @@ func TestDoWithRateLimit(t *testing.T) {
 			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
 		}
 	}
+}
 
+func TestGetWithRateLimit(t *testing.T) {
+	t.Parallel()
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello World !")
+	}))
+
+	testCases := []struct {
+		name         string
+		requests     []string
+		expectedRate float64
+		client       *http.Client
+	}{
+		{name: "2 requests - 1 QPS", requests: []string{ts.URL, ts.URL}, expectedRate: 1.0, client: ts.Client()},
+	}
+
+	for _, tc := range testCases {
+		var wg sync.WaitGroup
+
+		c := ratelimit.NewHTTPClient(tc.expectedRate)
+		c.Transport = ts.Client().Transport
+
+		start := time.Now()
+
+		wg.Add(len(tc.requests))
+
+		for _, req := range tc.requests {
+			go func(req string) {
+				c.GetWithRateLimit(req)
+				wg.Done()
+			}(req)
+		}
+
+		wg.Wait()
+
+		stop := time.Now()
+		duration := stop.Sub(start).Seconds()
+		effectiveRate := float64(len(tc.requests)) / duration
+
+		if effectiveRate > tc.expectedRate {
+			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
+		}
+	}
+}
+
+func TestHeadWithRateLimit(t *testing.T) {
+	t.Parallel()
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello World !")
+	}))
+
+	testCases := []struct {
+		name         string
+		requests     []string
+		expectedRate float64
+		client       *http.Client
+	}{
+		{name: "2 requests - 1 QPS", requests: []string{ts.URL, ts.URL}, expectedRate: 1.0, client: ts.Client()},
+	}
+
+	for _, tc := range testCases {
+		var wg sync.WaitGroup
+
+		c := ratelimit.NewHTTPClient(tc.expectedRate)
+		c.Transport = ts.Client().Transport
+
+		start := time.Now()
+
+		wg.Add(len(tc.requests))
+
+		for _, req := range tc.requests {
+			go func(req string) {
+				c.HeadWithRateLimit(req)
+				wg.Done()
+			}(req)
+		}
+
+		wg.Wait()
+
+		stop := time.Now()
+		duration := stop.Sub(start).Seconds()
+		effectiveRate := float64(len(tc.requests)) / duration
+
+		if effectiveRate > tc.expectedRate {
+			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
+		}
+	}
 }
 
 func TestPostWithRateLimit(t *testing.T) {
@@ -167,5 +210,4 @@ func TestPostWithRateLimit(t *testing.T) {
 			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
 		}
 	}
-
 }
