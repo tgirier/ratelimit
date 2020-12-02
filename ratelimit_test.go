@@ -30,9 +30,7 @@ func TestGet(t *testing.T) {
 	for _, tc := range testCases {
 		var wg sync.WaitGroup
 
-		c := ratelimit.HTTPClient{}
-		c.Client = tc.client
-		c.Rate = tc.expectedRate
+		c := ratelimit.NewHTTPClient(tc.client, tc.expectedRate)
 
 		start := time.Now()
 
@@ -91,9 +89,7 @@ func TestDo(t *testing.T) {
 			requests = append(requests, httpReq)
 		}
 
-		c := ratelimit.HTTPClient{}
-		c.Client = ts.Client()
-		c.Rate = tc.expectedRate
+		c := ratelimit.NewHTTPClient(tc.client, tc.expectedRate)
 
 		start := time.Now()
 
