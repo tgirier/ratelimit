@@ -1,21 +1,21 @@
-// Package polok implements API testing tool
+// Package ratelimit implements API testing tool
 // It enables load testing with rate-limiting and burst functionalities
-package polok
+package ratelimit
 
 import (
 	"net/http"
 	"time"
 )
 
-type httpClient interface {
+type httpRequester interface {
 	Get(string) (*http.Response, error)
 	Do(*http.Request) (*http.Response, error)
 }
 
-// RateLimitedHTTPClient is an HTTP client that rate limits requests.
+// HTTPClient is an HTTP client that rate limits requests.
 // If the rate is not specified, it defaults to a plain HTTP client.
-type RateLimitedHTTPClient struct {
-	Client            httpClient
+type HTTPClient struct {
+	Client            httpRequester
 	Rate              float64
 	ticker            *time.Ticker
 	tickerInitialized bool
@@ -23,7 +23,7 @@ type RateLimitedHTTPClient struct {
 }
 
 // Get issues a request.
-func (c *RateLimitedHTTPClient) Get(url string) (*http.Response, error) {
+func (c *HTTPClient) Get(url string) (*http.Response, error) {
 	c.initializeTicker()
 	c.initializeClient()
 
@@ -33,7 +33,7 @@ func (c *RateLimitedHTTPClient) Get(url string) (*http.Response, error) {
 }
 
 // Do sends an http request.
-func (c *RateLimitedHTTPClient) Do(req *http.Request) (*http.Response, error) {
+func (c *HTTPClient) Do(req *http.Request) (*http.Response, error) {
 	c.initializeTicker()
 	c.initializeClient()
 
@@ -43,7 +43,7 @@ func (c *RateLimitedHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 // initializeTicker sets up a client time ticker base on the provided rate.
-func (c *RateLimitedHTTPClient) initializeTicker() {
+func (c *HTTPClient) initializeTicker() {
 	if c.tickerInitialized {
 		return
 	}
@@ -55,7 +55,7 @@ func (c *RateLimitedHTTPClient) initializeTicker() {
 }
 
 // initializeClient configures the embedded http client based on specified propoerties.
-func (c *RateLimitedHTTPClient) initializeClient() {
+func (c *HTTPClient) initializeClient() {
 	if c.clientInitialized {
 		return
 	}
@@ -68,7 +68,7 @@ func (c *RateLimitedHTTPClient) initializeClient() {
 }
 
 // rateLimit wait for a tick if the client is rate limited.
-func (c *RateLimitedHTTPClient) rateLimit() {
+func (c *HTTPClient) rateLimit() {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}

@@ -1,4 +1,4 @@
-package polok_test
+package ratelimit_test
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/tgirier/polok"
+	"github.com/tgirier/ratelimit"
 )
 
 func TestGet(t *testing.T) {
@@ -30,7 +30,7 @@ func TestGet(t *testing.T) {
 	for _, tc := range testCases {
 		var wg sync.WaitGroup
 
-		c := polok.RateLimitedHTTPClient{}
+		c := ratelimit.HTTPClient{}
 		c.Client = tc.client
 		c.Rate = tc.expectedRate
 
@@ -91,7 +91,7 @@ func TestDo(t *testing.T) {
 			requests = append(requests, httpReq)
 		}
 
-		c := polok.RateLimitedHTTPClient{}
+		c := ratelimit.HTTPClient{}
 		c.Client = ts.Client()
 		c.Rate = tc.expectedRate
 
