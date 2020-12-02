@@ -2,6 +2,7 @@ package ratelimit_test
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -100,6 +101,58 @@ func TestDoWithRateLimit(t *testing.T) {
 		for _, req := range requests {
 			go func(req *http.Request) {
 				c.DoWithRateLimit(req)
+				wg.Done()
+			}(req)
+		}
+
+		wg.Wait()
+
+		stop := time.Now()
+		duration := stop.Sub(start).Seconds()
+		effectiveRate := float64(len(tc.requests)) / duration
+
+		if effectiveRate > tc.expectedRate {
+			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
+		}
+	}
+
+}
+
+func TestPostWithRateLimit(t *testing.T) {
+	t.Parallel()
+
+	type Request struct {
+		url         string
+		contentType string
+		body        io.Reader
+	}
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "Hello World !")
+	}))
+
+	testCases := []struct {
+		name         string
+		requests     []Request
+		expectedRate float64
+		client       *http.Client
+	}{
+		{name: "2 requests - 1 QPS", requests: []Request{{url: ts.URL, contentType: "", body: nil}, {url: ts.URL, contentType: "", body: nil}}, expectedRate: 1.0, client: ts.Client()},
+	}
+
+	for _, tc := range testCases {
+		var wg sync.WaitGroup
+
+		c := ratelimit.NewHTTPClient(tc.expectedRate)
+		c.Transport = ts.Client().Transport
+
+		start := time.Now()
+
+		wg.Add(len(tc.requests))
+
+		for _, req := range tc.requests {
+			go func(req Request) {
+				c.PostWithRateLimit(req.url, req.contentType, req.body)
 				wg.Done()
 			}(req)
 		}

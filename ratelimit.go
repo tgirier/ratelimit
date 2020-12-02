@@ -3,6 +3,7 @@
 package ratelimit
 
 import (
+	"io"
 	"net/http"
 	"time"
 )
@@ -15,25 +16,36 @@ type HTTPClient struct {
 	ticker *time.Ticker
 }
 
-// GetWithRateLimit issues a get request and is rate limited.
+// GetWithRateLimit issues a rate lmited get request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) GetWithRateLimit(url string) (*http.Response, error) {
+func (c *HTTPClient) GetWithRateLimit(url string) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
 	return c.Get(url)
 }
 
-// DoWithRateLimit issues a do request and is rate limited.
+// DoWithRateLimit issues a rate limited do request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) DoWithRateLimit(req *http.Request) (*http.Response, error) {
+func (c *HTTPClient) DoWithRateLimit(req *http.Request) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
 
 	return c.Do(req)
+}
+
+// PostWithRateLimit issues a rate limited post request.
+// All requests issued by this client using RateLimit methods share a common rate limiter.
+// Those reuqests are waiting for an available tick from a ticker channel.
+func (c *HTTPClient) PostWithRateLimit(url, contentType string, body io.Reader) (resp *http.Response, err error) {
+	if c.ticker != nil {
+		<-c.ticker.C
+	}
+
+	return c.Post(url, contentType, body)
 }
 
 // NewHTTPClient returns a rate limited http client.
