@@ -10,7 +10,7 @@ import (
 )
 
 // HTTPClient is an HTTP client that rate limits requests.
-// If the rate is not specified, it defaults to a plain HTTP client.
+// If the provided rate is zero, it defaults to a plain HTTP client.
 type HTTPClient struct {
 	http.Client
 	ticker *time.Ticker
@@ -76,4 +76,35 @@ func NewHTTPClient(rate float64) HTTPClient {
 	}
 
 	return c
+}
+
+// Worker executes a given function at a given rate.
+// If the provided rate is zero, it defaults to the provided function.
+type Worker struct {
+	ticker *time.Ticker
+	do     func()
+}
+
+// DoWithRateLimit executes the worker functionality at a given rate.
+// All function exectued by this worker shares a common rate limiter.
+// Those requests are waiting for an available tick from a ticker channel.
+func (w *Worker) DoWithRateLimit() {
+	if w.ticker != nil {
+		<-w.ticker.C
+	}
+	w.do()
+}
+
+// NewWorker returns a rate limited worker
+func NewWorker(rate float64, f func()) Worker {
+	w := Worker{
+		do: f,
+	}
+
+	if rate != 0.0 {
+		tickInterval := time.Duration(1e9/rate) * time.Nanosecond
+		w.ticker = time.NewTicker(tickInterval)
+	}
+
+	return w
 }

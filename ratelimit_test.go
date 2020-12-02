@@ -13,7 +13,7 @@ import (
 	"github.com/tgirier/ratelimit"
 )
 
-func TestDoWithRateLimit(t *testing.T) {
+func TestHttpDoWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	type Request struct {
@@ -72,7 +72,7 @@ func TestDoWithRateLimit(t *testing.T) {
 	}
 }
 
-func TestGetWithRateLimit(t *testing.T) {
+func TestHttpGetWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -117,7 +117,7 @@ func TestGetWithRateLimit(t *testing.T) {
 	}
 }
 
-func TestHeadWithRateLimit(t *testing.T) {
+func TestHttpHeadWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +162,7 @@ func TestHeadWithRateLimit(t *testing.T) {
 	}
 }
 
-func TestPostWithRateLimit(t *testing.T) {
+func TestHttpPostWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	type Request struct {
@@ -213,7 +213,7 @@ func TestPostWithRateLimit(t *testing.T) {
 	}
 }
 
-func TestPostFormWithRateLimit(t *testing.T) {
+func TestHttpPostFormWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	type Request struct {
@@ -256,6 +256,46 @@ func TestPostFormWithRateLimit(t *testing.T) {
 		stop := time.Now()
 		duration := stop.Sub(start).Seconds()
 		effectiveRate := float64(len(tc.requests)) / duration
+
+		if effectiveRate > tc.expectedRate {
+			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
+		}
+	}
+}
+
+func TestWorkerDoWithRateLimit(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		expectedRate float64
+		f            func()
+		n            int
+	}{
+		{name: "2 requests - 1 QPS", expectedRate: 1.0, f: func() { fmt.Println("Hello") }, n: 2},
+	}
+
+	for _, tc := range testCases {
+		var wg sync.WaitGroup
+
+		w := ratelimit.NewWorker(tc.expectedRate, tc.f)
+
+		start := time.Now()
+
+		wg.Add(tc.n)
+
+		for i := 0; i < tc.n; i++ {
+			go func() {
+				w.DoWithRateLimit()
+				wg.Done()
+			}()
+		}
+
+		wg.Wait()
+
+		stop := time.Now()
+		duration := stop.Sub(start).Seconds()
+		effectiveRate := float64(tc.n) / duration
 
 		if effectiveRate > tc.expectedRate {
 			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
