@@ -5,6 +5,7 @@ package ratelimit
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -12,7 +13,6 @@ import (
 // If the rate is not specified, it defaults to a plain HTTP client.
 type HTTPClient struct {
 	http.Client
-	rate   float64
 	ticker *time.Ticker
 }
 
@@ -23,7 +23,6 @@ func (c *HTTPClient) DoWithRateLimit(req *http.Request) (resp *http.Response, er
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
-
 	return c.Do(req)
 }
 
@@ -54,18 +53,25 @@ func (c *HTTPClient) PostWithRateLimit(url, contentType string, body io.Reader) 
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
-
 	return c.Post(url, contentType, body)
+}
+
+// PostFormWithRateLimit issues a rate limited post form request.
+// All requests issued by this client using RateLimit methods share a common rate limiter.
+// Those reuqests are waiting for an available tick from a ticker channel.
+func (c *HTTPClient) PostFormWithRateLimit(url string, data url.Values) (resp *http.Response, err error) {
+	if c.ticker != nil {
+		<-c.ticker.C
+	}
+	return c.PostForm(url, data)
 }
 
 // NewHTTPClient returns a rate limited http client.
 func NewHTTPClient(rate float64) HTTPClient {
-	c := HTTPClient{
-		rate: rate,
-	}
+	c := HTTPClient{}
 
 	if rate != 0.0 {
-		tickInterval := time.Duration(1e9/c.rate) * time.Nanosecond
+		tickInterval := time.Duration(1e9/rate) * time.Nanosecond
 		c.ticker = time.NewTicker(tickInterval)
 	}
 
