@@ -10,39 +10,32 @@ import (
 // HTTPClient is an HTTP client that rate limits requests.
 // If the rate is not specified, it defaults to a plain HTTP client.
 type HTTPClient struct {
+	http.Client
 	rate   float64
-	client *http.Client
 	ticker *time.Ticker
 }
 
-// Get issues a request.
-func (c *HTTPClient) Get(url string) (*http.Response, error) {
-	if c.client != nil {
+// GetWithRateLimit issues a request.
+func (c *HTTPClient) GetWithRateLimit(url string) (*http.Response, error) {
+	if c.ticker != nil {
 		<-c.ticker.C
 	}
-	return c.client.Get(url)
+	return c.Get(url)
 }
 
-// Do sends an http request.
-func (c *HTTPClient) Do(req *http.Request) (*http.Response, error) {
-	if c.client != nil {
+// DoWithRateLimit sends an http request.
+func (c *HTTPClient) DoWithRateLimit(req *http.Request) (*http.Response, error) {
+	if c.ticker != nil {
 		<-c.ticker.C
 	}
 
-	return c.client.Do(req)
+	return c.Do(req)
 }
 
 // NewHTTPClient returns a rate limited http client.
-// The client can be configured by providing a pointer to an http client.
-// If the provider pointer is nil Http default client will be used.
-func NewHTTPClient(client *http.Client, rate float64) HTTPClient {
+func NewHTTPClient(rate float64) HTTPClient {
 	c := HTTPClient{
-		client: http.DefaultClient,
-		rate:   rate,
-	}
-
-	if client != nil {
-		c.client = client
+		rate: rate,
 	}
 
 	if rate != 0.0 {

@@ -11,7 +11,7 @@ import (
 	"github.com/tgirier/ratelimit"
 )
 
-func TestGet(t *testing.T) {
+func TestGetWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -30,7 +30,8 @@ func TestGet(t *testing.T) {
 	for _, tc := range testCases {
 		var wg sync.WaitGroup
 
-		c := ratelimit.NewHTTPClient(tc.client, tc.expectedRate)
+		c := ratelimit.NewHTTPClient(tc.expectedRate)
+		c.Transport = ts.Client().Transport
 
 		start := time.Now()
 
@@ -38,7 +39,7 @@ func TestGet(t *testing.T) {
 
 		for _, req := range tc.requests {
 			go func(req string) {
-				c.Get(req)
+				c.GetWithRateLimit(req)
 				wg.Done()
 			}(req)
 		}
@@ -56,7 +57,7 @@ func TestGet(t *testing.T) {
 
 }
 
-func TestDo(t *testing.T) {
+func TestDoWithRateLimit(t *testing.T) {
 	t.Parallel()
 
 	type Request struct {
@@ -89,7 +90,8 @@ func TestDo(t *testing.T) {
 			requests = append(requests, httpReq)
 		}
 
-		c := ratelimit.NewHTTPClient(tc.client, tc.expectedRate)
+		c := ratelimit.NewHTTPClient(tc.expectedRate)
+		c.Transport = ts.Client().Transport
 
 		start := time.Now()
 
@@ -97,7 +99,7 @@ func TestDo(t *testing.T) {
 
 		for _, req := range requests {
 			go func(req *http.Request) {
-				c.Do(req)
+				c.DoWithRateLimit(req)
 				wg.Done()
 			}(req)
 		}
