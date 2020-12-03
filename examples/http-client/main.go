@@ -19,7 +19,6 @@ func main() {
 	fmt.Println("Rate limited HTTP client initialized")
 
 	start := time.Now() // Start a timer to calculate the effective rate
-
 	fmt.Printf("Starting to send request at a rate of %.2f QPS\n", rate)
 
 	// Send requests concurrently
