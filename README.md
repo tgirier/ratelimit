@@ -2,7 +2,8 @@
 
 Rate Limit is a Go API providing rate limited functionalities.
 
-You can choose from to various types according to your needs and use their rate limited methods.
+You can choose from to various types according to your needs.
+Each type comes with a set of rate-limited methods.
 
 Built with :heart: in Paris.
 
