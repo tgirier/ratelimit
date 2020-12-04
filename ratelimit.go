@@ -1,5 +1,5 @@
-// Package ratelimit implements API testing tool
-// It enables load testing with rate-limiting and burst functionalities
+// Package ratelimit implements rate limiting functionalities
+// It defines types and rate limited associated methods
 package ratelimit
 
 import (
@@ -67,7 +67,7 @@ func (c *HTTPClient) PostFormWithRateLimit(url string, data url.Values) (resp *h
 }
 
 // NewHTTPClient returns a rate limited http client.
-func NewHTTPClient(rate float64) HTTPClient {
+func NewHTTPClient(rate float64) *HTTPClient {
 	c := HTTPClient{}
 
 	if rate != 0.0 {
@@ -75,7 +75,7 @@ func NewHTTPClient(rate float64) HTTPClient {
 		c.ticker = time.NewTicker(tickInterval)
 	}
 
-	return c
+	return &c
 }
 
 // Worker executes a given function at a given rate.
@@ -96,7 +96,7 @@ func (w *Worker) DoWithRateLimit() {
 }
 
 // NewWorker returns a rate limited worker
-func NewWorker(rate float64, f func()) Worker {
+func NewWorker(rate float64, f func()) *Worker {
 	w := Worker{
 		do: f,
 	}
@@ -106,5 +106,5 @@ func NewWorker(rate float64, f func()) Worker {
 		w.ticker = time.NewTicker(tickInterval)
 	}
 
-	return w
+	return &w
 }

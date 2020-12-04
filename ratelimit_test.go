@@ -24,6 +24,7 @@ func TestHttpDoWithRateLimit(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello World !")
 	}))
+	defer ts.Close()
 
 	testCases := []struct {
 		name         string
@@ -78,6 +79,7 @@ func TestHttpGetWithRateLimit(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello World !")
 	}))
+	defer ts.Close()
 
 	testCases := []struct {
 		name         string
@@ -123,6 +125,7 @@ func TestHttpHeadWithRateLimit(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello World !")
 	}))
+	defer ts.Close()
 
 	testCases := []struct {
 		name         string
@@ -174,6 +177,7 @@ func TestHttpPostWithRateLimit(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello World !")
 	}))
+	defer ts.Close()
 
 	testCases := []struct {
 		name         string
@@ -224,6 +228,7 @@ func TestHttpPostFormWithRateLimit(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprint(w, "Hello World !")
 	}))
+	defer ts.Close()
 
 	testCases := []struct {
 		name         string
