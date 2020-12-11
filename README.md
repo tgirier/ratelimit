@@ -1,4 +1,4 @@
-![rate-limit](https://i.imgur.com/VubP2Sf.png)
+![rate-limit](https://i.imgur.com/qPr5q2W.gif)
 
 Rate Limit is a Go API providing rate limited functionalities.
 
