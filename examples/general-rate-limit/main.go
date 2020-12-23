@@ -2,36 +2,26 @@ package main
 
 import (
 	"fmt"
-	"sync"
 	"time"
 
 	"github.com/tgirier/ratelimit"
 )
 
 func main() {
-	var wg sync.WaitGroup
-
-	rate := 1.0                                 // Rate: 1.0 executions per seconds
-	n := 2                                      // Number of times the function will be executed
-	f := func() { fmt.Println("Hello World!") } // Function that will be executed
+	rate := 1.0 // Rate: 1.0 executions per seconds
+	n := 2      // Number of times the function will be executed
 
 	// Create a rate limited worker
-	w := ratelimit.NewWorker(rate, f)
+	w := ratelimit.NewWorker(rate, func() { fmt.Println("Hello World!") })
 	fmt.Println("Rate limited worker initialized")
 
 	start := time.Now() // Start a timer to calculate the effective rate
 	fmt.Printf("Starting to execute the provided function at a rate of %.2f QPS\n", rate)
 
-	// Execute function concurrently
-	wg.Add(n)
+	// Execute function
 	for i := 0; i < n; i++ {
-		go func() {
-			w.DoWithRateLimit()
-			wg.Done()
-		}()
+		w.DoWithRateLimit()
 	}
-
-	wg.Wait()
 
 	// Calculate the effective rate
 	stop := time.Now()
