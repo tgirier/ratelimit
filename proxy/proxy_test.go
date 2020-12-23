@@ -15,26 +15,31 @@ import (
 func TestServeHTTPWithRateLimit(t *testing.T) {
 	t.Parallel()
 
+	want := "Request forwarded by proxy"
+	noLimitThreshold := 100.0
+	errorMargin := 0.05
+
 	testCases := []struct {
 		name   string
 		number int
 		rate   float64
 		want   string
 	}{
-		{name: "2 requests, 1 QPS", number: 2, rate: 1.0, want: "Request forwarded by proxy"},
+		{name: "2 requests, 1 QPS", number: 2, rate: 1.0},
+		{name: "2 requests, no rate limiting", number: 2, rate: 0.0},
+	}
+
+	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		fmt.Fprintf(w, want)
+	}))
+	defer ts.Close()
+
+	rpURL, err := url.Parse(ts.URL)
+	if err != nil {
+		t.Fatal(err)
 	}
 
 	for _, tc := range testCases {
-		ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			fmt.Fprintf(w, tc.want)
-		}))
-		defer ts.Close()
-
-		rpURL, err := url.Parse(ts.URL)
-		if err != nil {
-			t.Fatal(err)
-		}
-
 		rp := proxy.NewRateLimitedReverseProxy(rpURL, tc.rate)
 		rp.Server.Transport = ts.Client().Transport
 
@@ -57,8 +62,8 @@ func TestServeHTTPWithRateLimit(t *testing.T) {
 
 			s := string(b)
 
-			if s != tc.want {
-				t.Fatalf("%s - got: %s, expected: %s", tc.name, s, tc.want)
+			if s != want {
+				t.Fatalf("%s - got: %s, expected: %s", tc.name, s, want)
 			}
 		}
 
@@ -66,8 +71,16 @@ func TestServeHTTPWithRateLimit(t *testing.T) {
 		duration := stop.Sub(start).Seconds()
 		effectiveRate := float64(tc.number) / duration
 
-		if effectiveRate > tc.rate {
-			t.Fatalf("effective rate %f, expected %.2f", effectiveRate, tc.rate)
+		if tc.rate == 0.0 && effectiveRate < noLimitThreshold {
+			t.Fatalf("%s - effective rate %f, no rate limiting threshold %.2f", tc.name, effectiveRate, noLimitThreshold)
+		}
+
+		if tc.rate != 0.0 && effectiveRate > tc.rate {
+			t.Fatalf("%s - effective rate too high %f, expected %.2f", tc.name, effectiveRate, tc.rate)
+		}
+
+		if tc.rate != 0.0 && effectiveRate < (tc.rate-errorMargin) {
+			t.Fatalf("%s - effective rate too low %f, expected %.2f, error margin %f", tc.name, effectiveRate, tc.rate, errorMargin)
 		}
 	}
 }
