@@ -2,10 +2,8 @@ package ratelimit_test
 
 import (
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"sync"
 	"testing"
 	"time"
@@ -13,258 +11,76 @@ import (
 	"github.com/tgirier/ratelimit"
 )
 
-func TestHttpDoWithRateLimit(t *testing.T) {
-	t.Parallel()
-
-	type Request struct {
-		Method string
-		URL    string
-	}
-
+func TestHttpMethodsWithRateLimit(t *testing.T) {
 	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello World !")
+		fmt.Fprint(w, "Hello World!")
 	}))
 	defer ts.Close()
 
+	client := ts.Client()
+	noLimitThreshold := 100.0
+	errorMargin := 0.05
+
 	testCases := []struct {
-		name         string
-		requests     []Request
-		expectedRate float64
-		client       *http.Client
+		name   string
+		method string
+		url    string
+		number int
+		rate   float64
 	}{
-		{name: "2 requests - 1 QPS", requests: []Request{{Method: "GET", URL: ts.URL}, {Method: "GET", URL: ts.URL}}, expectedRate: 1.0, client: ts.Client()},
+		{name: "DO 2 reqs 1 QPS", method: "DO", url: ts.URL, number: 2, rate: 1.0},
+		{name: "GET 2 reqs 1 QPS", method: "GET", url: ts.URL, number: 2, rate: 1.0},
+		{name: "HEAD 2 reqs 1 QPS", method: "HEAD", url: ts.URL, number: 2, rate: 1.0},
+		{name: "POST 2 reqs 1 QPS", method: "POST", url: ts.URL, number: 2, rate: 1.0},
+		{name: "POSTFORM 2 reqs 1 QPS", method: "POSTFORM", url: ts.URL, number: 2, rate: 1.0},
+		{name: "DO no rate limit", method: "DO", url: ts.URL, number: 2, rate: 0.0},
 	}
 
 	for _, tc := range testCases {
-		var wg sync.WaitGroup
-		var requests []*http.Request
+		t.Run(tc.name, func(t *testing.T) {
+			c := ratelimit.NewHTTPClient(tc.rate)
+			c.Transport = client.Transport
 
-		for _, req := range tc.requests {
-			httpReq, err := http.NewRequest(req.Method, req.URL, nil)
-			if err != nil {
-				t.Fatalf("%v - %v", tc.name, err)
+			start := time.Now()
+
+			for i := 0; i < tc.number; i++ {
+				switch tc.method {
+				case "DO":
+					req, err := http.NewRequest("GET", tc.url, nil)
+					if err != nil {
+						t.Errorf("%s - %v", tc.name, err)
+					}
+					c.DoWithRateLimit(req)
+				case "GET":
+					c.GetWithRateLimit(tc.url)
+				case "HEAD":
+					c.HeadWithRateLimit(tc.url)
+				case "POST":
+					c.PostWithRateLimit(tc.url, "", nil)
+				case "POSTFORM":
+					c.PostFormWithRateLimit(tc.url, nil)
+				default:
+					t.Errorf("%s - invalid method %v", tc.name, tc.method)
+				}
 			}
-			requests = append(requests, httpReq)
-		}
 
-		c := ratelimit.NewHTTPClient(tc.expectedRate)
-		c.Transport = ts.Client().Transport
+			stop := time.Now()
+			duration := stop.Sub(start).Seconds()
+			effectiveRate := float64(tc.number) / duration
 
-		start := time.Now()
+			if tc.rate == 0 && effectiveRate < noLimitThreshold {
+				t.Errorf("%s - effective rate %f, no limit threshold %.2f", tc.name, effectiveRate, noLimitThreshold)
+			}
 
-		wg.Add(len(requests))
+			if tc.rate != 0 && effectiveRate > tc.rate {
+				t.Errorf("%s - effective rate too high %f, expected %.2f", tc.name, effectiveRate, tc.rate)
+			}
 
-		for _, req := range requests {
-			go func(req *http.Request) {
-				c.DoWithRateLimit(req)
-				wg.Done()
-			}(req)
-		}
+			if tc.rate != 0 && effectiveRate < (tc.rate-errorMargin) {
+				t.Errorf("%s - effective rate too low %f, expected %.2f, error margin %f", tc.name, effectiveRate, tc.rate, errorMargin)
+			}
 
-		wg.Wait()
-
-		stop := time.Now()
-		duration := stop.Sub(start).Seconds()
-		effectiveRate := float64(len(tc.requests)) / duration
-
-		if effectiveRate > tc.expectedRate {
-			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
-		}
-	}
-}
-
-func TestHttpGetWithRateLimit(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello World !")
-	}))
-	defer ts.Close()
-
-	testCases := []struct {
-		name         string
-		requests     []string
-		expectedRate float64
-		client       *http.Client
-	}{
-		{name: "2 requests - 1 QPS", requests: []string{ts.URL, ts.URL}, expectedRate: 1.0, client: ts.Client()},
-	}
-
-	for _, tc := range testCases {
-		var wg sync.WaitGroup
-
-		c := ratelimit.NewHTTPClient(tc.expectedRate)
-		c.Transport = ts.Client().Transport
-
-		start := time.Now()
-
-		wg.Add(len(tc.requests))
-
-		for _, req := range tc.requests {
-			go func(req string) {
-				c.GetWithRateLimit(req)
-				wg.Done()
-			}(req)
-		}
-
-		wg.Wait()
-
-		stop := time.Now()
-		duration := stop.Sub(start).Seconds()
-		effectiveRate := float64(len(tc.requests)) / duration
-
-		if effectiveRate > tc.expectedRate {
-			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
-		}
-	}
-}
-
-func TestHttpHeadWithRateLimit(t *testing.T) {
-	t.Parallel()
-
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello World !")
-	}))
-	defer ts.Close()
-
-	testCases := []struct {
-		name         string
-		requests     []string
-		expectedRate float64
-		client       *http.Client
-	}{
-		{name: "2 requests - 1 QPS", requests: []string{ts.URL, ts.URL}, expectedRate: 1.0, client: ts.Client()},
-	}
-
-	for _, tc := range testCases {
-		var wg sync.WaitGroup
-
-		c := ratelimit.NewHTTPClient(tc.expectedRate)
-		c.Transport = ts.Client().Transport
-
-		start := time.Now()
-
-		wg.Add(len(tc.requests))
-
-		for _, req := range tc.requests {
-			go func(req string) {
-				c.HeadWithRateLimit(req)
-				wg.Done()
-			}(req)
-		}
-
-		wg.Wait()
-
-		stop := time.Now()
-		duration := stop.Sub(start).Seconds()
-		effectiveRate := float64(len(tc.requests)) / duration
-
-		if effectiveRate > tc.expectedRate {
-			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
-		}
-	}
-}
-
-func TestHttpPostWithRateLimit(t *testing.T) {
-	t.Parallel()
-
-	type Request struct {
-		url         string
-		contentType string
-		body        io.Reader
-	}
-
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello World !")
-	}))
-	defer ts.Close()
-
-	testCases := []struct {
-		name         string
-		requests     []Request
-		expectedRate float64
-		client       *http.Client
-	}{
-		{name: "2 requests - 1 QPS", requests: []Request{{url: ts.URL, contentType: "", body: nil}, {url: ts.URL, contentType: "", body: nil}}, expectedRate: 1.0, client: ts.Client()},
-	}
-
-	for _, tc := range testCases {
-		var wg sync.WaitGroup
-
-		c := ratelimit.NewHTTPClient(tc.expectedRate)
-		c.Transport = ts.Client().Transport
-
-		start := time.Now()
-
-		wg.Add(len(tc.requests))
-
-		for _, req := range tc.requests {
-			go func(req Request) {
-				c.PostWithRateLimit(req.url, req.contentType, req.body)
-				wg.Done()
-			}(req)
-		}
-
-		wg.Wait()
-
-		stop := time.Now()
-		duration := stop.Sub(start).Seconds()
-		effectiveRate := float64(len(tc.requests)) / duration
-
-		if effectiveRate > tc.expectedRate {
-			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
-		}
-	}
-}
-
-func TestHttpPostFormWithRateLimit(t *testing.T) {
-	t.Parallel()
-
-	type Request struct {
-		url  string
-		data url.Values
-	}
-
-	ts := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Fprint(w, "Hello World !")
-	}))
-	defer ts.Close()
-
-	testCases := []struct {
-		name         string
-		requests     []Request
-		expectedRate float64
-		client       *http.Client
-	}{
-		{name: "2 requests - 1 QPS", requests: []Request{{url: ts.URL, data: nil}, {url: ts.URL, data: nil}}, expectedRate: 1.0, client: ts.Client()},
-	}
-
-	for _, tc := range testCases {
-		var wg sync.WaitGroup
-
-		c := ratelimit.NewHTTPClient(tc.expectedRate)
-		c.Transport = ts.Client().Transport
-
-		start := time.Now()
-
-		wg.Add(len(tc.requests))
-
-		for _, req := range tc.requests {
-			go func(req Request) {
-				c.PostFormWithRateLimit(req.url, req.data)
-				wg.Done()
-			}(req)
-		}
-
-		wg.Wait()
-
-		stop := time.Now()
-		duration := stop.Sub(start).Seconds()
-		effectiveRate := float64(len(tc.requests)) / duration
-
-		if effectiveRate > tc.expectedRate {
-			t.Fatalf("effective rate %.2f, expected %.2f", effectiveRate, tc.expectedRate)
-		}
+		})
 	}
 }
 
