@@ -11,7 +11,7 @@ import (
 
 // HTTPClient is an HTTP client that rate limits requests.
 // If the provided rate is zero, it defaults to a plain HTTP client.
-type HTTPClient struct {
+type httpClient struct {
 	http.Client
 	ticker *time.Ticker
 }
@@ -19,7 +19,7 @@ type HTTPClient struct {
 // DoWithRateLimit issues a rate limited do request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) DoWithRateLimit(req *http.Request) (resp *http.Response, err error) {
+func (c *httpClient) DoWithRateLimit(req *http.Request) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
@@ -29,7 +29,7 @@ func (c *HTTPClient) DoWithRateLimit(req *http.Request) (resp *http.Response, er
 // GetWithRateLimit issues a rate lmited get request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) GetWithRateLimit(url string) (resp *http.Response, err error) {
+func (c *httpClient) GetWithRateLimit(url string) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
@@ -39,7 +39,7 @@ func (c *HTTPClient) GetWithRateLimit(url string) (resp *http.Response, err erro
 // HeadWithRateLimit issues a rate lmited head request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) HeadWithRateLimit(url string) (resp *http.Response, err error) {
+func (c *httpClient) HeadWithRateLimit(url string) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
@@ -49,7 +49,7 @@ func (c *HTTPClient) HeadWithRateLimit(url string) (resp *http.Response, err err
 // PostWithRateLimit issues a rate limited post request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) PostWithRateLimit(url, contentType string, body io.Reader) (resp *http.Response, err error) {
+func (c *httpClient) PostWithRateLimit(url, contentType string, body io.Reader) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
@@ -59,7 +59,7 @@ func (c *HTTPClient) PostWithRateLimit(url, contentType string, body io.Reader) 
 // PostFormWithRateLimit issues a rate limited post form request.
 // All requests issued by this client using RateLimit methods share a common rate limiter.
 // Those reuqests are waiting for an available tick from a ticker channel.
-func (c *HTTPClient) PostFormWithRateLimit(url string, data url.Values) (resp *http.Response, err error) {
+func (c *httpClient) PostFormWithRateLimit(url string, data url.Values) (resp *http.Response, err error) {
 	if c.ticker != nil {
 		<-c.ticker.C
 	}
@@ -67,8 +67,8 @@ func (c *HTTPClient) PostFormWithRateLimit(url string, data url.Values) (resp *h
 }
 
 // NewHTTPClient returns a rate limited http client.
-func NewHTTPClient(rate float64) *HTTPClient {
-	c := HTTPClient{}
+func NewHTTPClient(rate float64) *httpClient {
+	c := httpClient{}
 
 	if rate != 0.0 {
 		tickInterval := time.Duration(1e9/rate) * time.Nanosecond
@@ -80,7 +80,7 @@ func NewHTTPClient(rate float64) *HTTPClient {
 
 // Worker executes a given function at a given rate.
 // If the provided rate is zero, it defaults to the provided function.
-type Worker struct {
+type worker struct {
 	ticker *time.Ticker
 	do     func()
 }
@@ -88,7 +88,7 @@ type Worker struct {
 // DoWithRateLimit executes the worker functionality at a given rate.
 // All function exectued by this worker shares a common rate limiter.
 // Those requests are waiting for an available tick from a ticker channel.
-func (w *Worker) DoWithRateLimit() {
+func (w *worker) DoWithRateLimit() {
 	if w.ticker != nil {
 		<-w.ticker.C
 	}
@@ -96,8 +96,8 @@ func (w *Worker) DoWithRateLimit() {
 }
 
 // NewWorker returns a rate limited worker
-func NewWorker(rate float64, f func()) *Worker {
-	w := Worker{
+func NewWorker(rate float64, f func()) *worker {
+	w := worker{
 		do: f,
 	}
 
