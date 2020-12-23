@@ -1,5 +1,9 @@
 ![rate-limit](https://i.imgur.com/QN5jTS7.gif)
 
+```Go
+import "github/tgirier/ratelimit"
+```
+
 Rate Limit is a Go API providing rate limited functionalities.
 
 You can choose from to various types according to your needs.
@@ -39,7 +43,9 @@ c := ratelimit.NewHTTPClient(rate)
 
 The HTTPClient embeds an http.Client.
 
-More examples are provided in the *examples/general-rate-limit* and *examples/http-client* folder.
+Examples are provided:
+- [General rate limiter](examples/general-rate-limit/main.go)
+- [HTTP client](examples/http-client/main.go)
 
 ## Proxy package
 
@@ -57,7 +63,7 @@ Proxy configuration can be achieved by configuring the embedded httputil.Reverse
 proxy.Server.Transport = backend.Client().Transport
 ```
 
-A detailed example is provided in the *examples/http-reverse-proxy* folder.
+A detailed example is provided [here](examples/http-reverse-proxy/main.go).
 
 # Contributions
 
