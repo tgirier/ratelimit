@@ -33,7 +33,7 @@ func main() {
 	}
 
 	// Setup the proxy handler
-	proxy := proxy.NewRateLimitedReverseProxy(urlToProxy, rate)
+	proxy := proxy.NewRateLimitedSingleRP(urlToProxy, rate)
 	proxy.Server.Transport = backend.Client().Transport // Customizing the transport to ensure TLS trust to the backend
 
 	// Create a frontend server using the proxy handler

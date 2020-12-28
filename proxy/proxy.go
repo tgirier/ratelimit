@@ -2,33 +2,34 @@
 package proxy
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"time"
 )
 
-// RateLimitedRP is an http proxy that rate limits outgoing requests.
+// rateLimitedSingleRP is an http proxy that rate limits outgoing requests for a single host.
 // If the provided rate is zero, it defaults to a plain http reverse proxy.
-type rateLimitedRP struct {
+type rateLimitedSingleRP struct {
 	Server httputil.ReverseProxy
 	ticker *time.Ticker
 }
 
 // ServeHTTP is an http handler.
 // It listens to incoming requests, waits for an available ticker and sends the request back to the initial caller.
-func (p *rateLimitedRP) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+func (p *rateLimitedSingleRP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if p.ticker != nil {
 		<-p.ticker.C
 	}
-	p.Server.ServeHTTP(rw, req)
+	p.Server.ServeHTTP(w, r)
 }
 
-// NewRateLimitedReverseProxy returns a rate limited http proxy for the given URL.
-func NewRateLimitedReverseProxy(target *url.URL, rate float64) *rateLimitedRP {
+// NewRateLimitedSingleRP returns a rate limited http proxy for the given URL.
+func NewRateLimitedSingleRP(target *url.URL, rate float64) *rateLimitedSingleRP {
 	rp := httputil.NewSingleHostReverseProxy(target)
 
-	p := &rateLimitedRP{
+	p := &rateLimitedSingleRP{
 		Server: *rp,
 	}
 
@@ -38,4 +39,41 @@ func NewRateLimitedReverseProxy(target *url.URL, rate float64) *rateLimitedRP {
 	}
 
 	return p
+}
+
+// rateLimitedMultipleRP is an http reverse proxy that rate limits outgoing requests for multiple hosts.
+// The rate is globally enforced at the proxy level.
+// If the provided rate is zero, it defaults to a plain http reverse proxy.
+type rateLimitedMultipleRP struct {
+	Router *http.ServeMux
+	ticker *time.Ticker
+}
+
+// ServeHTTP is an http handler.
+// It listens to incoming resquests and passes it to the embedded router at a given rate.
+func (mp *rateLimitedMultipleRP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if mp.ticker != nil {
+		<-mp.ticker.C
+	}
+	mp.Router.ServeHTTP(w, r)
+}
+
+// NewRateLimitedMultipleRP returns a multiple host rate limited reverse proxy.
+func NewRateLimitedMultipleRP(rate float64, targets ...*url.URL) *rateLimitedMultipleRP {
+	mp := &rateLimitedMultipleRP{}
+
+	if rate != 0.0 {
+		tickerInterval := time.Duration(1e9/rate) * time.Nanosecond
+		mp.ticker = time.NewTicker(tickerInterval)
+	}
+
+	mp.Router = http.NewServeMux()
+
+	for _, url := range targets {
+		pattern := fmt.Sprint("/", url.Host)
+		handler := httputil.NewSingleHostReverseProxy(url)
+		mp.Router.Handle(pattern, handler)
+	}
+
+	return mp
 }
