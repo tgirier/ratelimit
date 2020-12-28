@@ -26,7 +26,7 @@ func (p *rateLimitedSingleRP) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 }
 
 // NewRateLimitedSingleRP returns a rate limited http proxy for the given URL.
-func NewRateLimitedSingleRP(target *url.URL, rate float64) *rateLimitedSingleRP {
+func NewRateLimitedSingleRP(rate float64, target *url.URL) *rateLimitedSingleRP {
 	rp := httputil.NewSingleHostReverseProxy(target)
 
 	p := &rateLimitedSingleRP{

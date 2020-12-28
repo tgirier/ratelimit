@@ -63,7 +63,7 @@ Proxy configuration can be achieved by configuring the embedded httputil.Reverse
 proxy.Server.Transport = backend.Client().Transport
 ```
 
-A detailed example is provided [here](examples/http-reverse-proxy/main.go).
+A detailed example is provided [here](examples/http-single-reverse-proxy/main.go).
 
 # Contributions
 

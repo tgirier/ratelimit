@@ -39,7 +39,7 @@ func TestServeHTTPSingleWithRateLimit(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		rp := proxy.NewRateLimitedSingleRP(rpURL, tc.rate)
+		rp := proxy.NewRateLimitedSingleRP(tc.rate, rpURL)
 		rp.Server.Transport = ts.Client().Transport
 
 		p := httptest.NewTLSServer(rp)
