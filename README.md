@@ -49,21 +49,40 @@ Examples are provided:
 
 ## Proxy package
 
-The proxy sub-package provides an HTTP rate limited reverse proxy type.
-An httputil.ReverseProxy is embedded with the reverse proxy type.
+The proxy sub-package provides two HTTP rate limited reverse proxy types:
 
-The proxy type needs to be initialized using the provied constructor. It enables the rate limiting functionality to be configured:
+- rateLimitedSingleRP: is a single host reverse proxy.
+It embeds an httputil.ReverseProxy.
+
+- rateLimitedMultipleRP: proxies requests to multiple hosts based on the request path.
+It embeds an http.ServeMux which handlers are httputil.ReverseProxy. 
+
+Both types needs to be initialized using the provied constructor. It enables the rate limiting functionality to be configured:
 ```Go
-proxy := proxy.NewRateLimitedReverseProxy(urlToProxy, rate)
+singleProxy := proxy.NewRateLimitedSingleRP(rate, urlToProxy)
 ```
 
-All the requests will be proxied to the given URL at a given rate.
-Proxy configuration can be achieved by configuring the embedded httputil.ReverseProxy (embedded as Server):
 ```Go
-proxy.Server.Transport = backend.Client().Transport
+multipleProxy := proxy.NewRateLimitedMultipleRP(rate, urlsToProxy...)
 ```
 
-A detailed example is provided [here](examples/http-single-reverse-proxy/main.go).
+Rate limited is enforced at the struct level.
+Therefore, for the multipleRP, a global rate limit is enforced whatever  backends host is targeted by the request.
+
+Proxy configuration can be achieved by configuring the embedded structs:
+
+- singleRP: httputil.ReverseProxy exposed as Server
+```Go
+singleProxy.Server.Transport = backend.Client().Transport
+```
+- multipleRP: http.ServeMux exposed as Router
+```Go
+multipleProxy.Router.Handle(customPattern, customHandler)
+```
+Examples are provided:
+- [Single Host Reverse Proxy](examples/http-single-reverse-proxy/main.go)
+- [Multiple Hosts Reverse Proxy](examples/http-multiple-reverse-proxy/main.go)
+
 
 # Contributions
 
